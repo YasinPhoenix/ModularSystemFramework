@@ -27,7 +27,7 @@ private:
                 auto &entry = sys->registry.getEntry(i);
                 IModule *m = entry.module;
 
-                uint32_t interval = m->interval();
+                uint32_t interval = m->updateInterval();
 
                 if (now - entry.lastUpdate >= interval)
                 {
@@ -46,9 +46,11 @@ public:
         return registry.add(m);
     }
 
-    EventQueue &events() { return queue; }
+    EventQueue &highEvents() { return highQueue; }
+    EventQueue &normalEvents() { return normalQueue; }
+    EventQueue &lowEvents() { return lowQueue; }
 
-    void emit(const Event &e, EventPriority p = PRIORITY_NORAL)
+    void emit(const Event &e, EventPriority p = PRIORITY_NORMAL)
     {
         switch (p)
         {
@@ -129,9 +131,9 @@ public:
 
     bool replaceExisting(EventQueue &q, const Event &e)
     {
-        for (uint16_t i = 0; i < EVENT_QUEUE_SIZE, i++)
+        for (uint16_t i = 0; i < EVENT_QUEUE_SIZE; i++)
         {
-            Event &slot = q.buffer[i];
+            Event slot = q.getBufferIndex(i);
 
             if (slot.type == e.type)
             {

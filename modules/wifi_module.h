@@ -19,7 +19,7 @@ public:
         return EVENT_BIT(EVENT_SENSOR_UPDATE);
     }
 
-    uint32_t interval() override { return 10; }
+    uint32_t updateInterval() override { return 10; }
 
     void onEvent(const Event &e) override
     {

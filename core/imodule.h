@@ -15,7 +15,7 @@ public:
     // Default: listen to everyone (safe fallback)
 
     // Update interval in ms
-    virtual uint32_t interval() { return 1000; }
+    virtual uint32_t updateInterval() { return 1000; }
 
     virtual void onEvent(const Event &e) {}
 };

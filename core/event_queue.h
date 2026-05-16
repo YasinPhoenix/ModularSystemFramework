@@ -5,7 +5,8 @@
 
 #define EVENT_QUEUE_SIZE 32
 
-class EventQueue {
+class EventQueue
+{
 private:
     Event buffer[EVENT_QUEUE_SIZE];
     int head = 0;
@@ -14,11 +15,13 @@ private:
     portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
 
 public:
-    bool push(const Event& e) {
+    bool push(const Event &e)
+    {
         portENTER_CRITICAL(&mux);
 
         int next = (head + 1) % EVENT_QUEUE_SIZE;
-        if (next == tail) {
+        if (next == tail)
+        {
             portEXIT_CRITICAL(&mux);
             return false;
         }
@@ -30,10 +33,12 @@ public:
         return true;
     }
 
-    bool pop(Event& out) {
+    bool pop(Event &out)
+    {
         portENTER_CRITICAL(&mux);
 
-        if (tail == head) {
+        if (tail == head)
+        {
             portEXIT_CRITICAL(&mux);
             return false;
         }
@@ -44,4 +49,6 @@ public:
         portEXIT_CRITICAL(&mux);
         return true;
     }
+
+    const Event &getBufferIndex(size_t index) { return buffer[index]; }
 };

@@ -36,5 +36,5 @@ union EventData
 {
     SensorUpdateData sensor;
     WifiStatusData wifi;
-    DefaultData default;
+    DefaultData defaultData;
 };

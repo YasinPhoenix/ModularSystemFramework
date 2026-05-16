@@ -16,7 +16,7 @@ public:
     {
         uint32_t now = millis();
 
-        if (now - lastEmit < interval)
+        if (now - lastEmit < emitInterval)
         {
             return;
         }
@@ -32,11 +32,11 @@ public:
         return 0; // Listen to nothing
     }
 
-    uint32_t interval() override { return 500; }
+    uint32_t updateInterval() override { return 500; }
 
 private:
     uint32_t lastEmit = 0;
-    const uint32_t interval = 500;
+    const uint32_t emitInterval = 500;
 
     float readTemp()
     {

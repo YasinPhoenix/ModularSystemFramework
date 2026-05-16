@@ -1,5 +1,6 @@
 #pragma once
 #include "event_types.h"
+#include "event_priority.h"
 
 struct Event
 {
@@ -22,7 +23,7 @@ static Event makeEvent(EventType type, uint32_t sourceId, uint32_t timeStamp, fl
         e.data.sensor.value = value;
         break;
     default:
-        e.data.default.value = value;
+        e.data.defaultData.value = value;
         break;
     }
 }
