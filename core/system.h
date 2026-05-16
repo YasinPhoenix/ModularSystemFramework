@@ -8,7 +8,9 @@ class System
 {
 private:
     ModuleRegistry registry;
-    EventQueue queue;
+    EventQueue highQueue;
+    EventQueue normalQueue;
+    EventQueue lowQueue;
 
     TaskHandle_t updateTaskHandle = nullptr;
 
@@ -18,12 +20,23 @@ private:
 
         while (true)
         {
+            uint32_t now = millis();
+
             for (int i = 0; i < sys->registry.size(); i++)
             {
-                sys->registry.get(i)->update();
+                auto &entry = sys->registry.getEntry(i);
+                IModule *m = entry.module;
+
+                uint32_t interval = m->interval();
+
+                if (now - entry.lastUpdate >= interval)
+                {
+                    entry.lastUpdate = now;
+                    m->update();
+                }
             }
 
-            vTaskDelay(1);
+            vTaskDelay(1); // yield
         }
     }
 
@@ -35,9 +48,20 @@ public:
 
     EventQueue &events() { return queue; }
 
-    void emit(const Event &e)
+    void emit(const Event &e, EventPriority p = PRIORITY_NORAL)
     {
-        queue.push(e);
+        switch (p)
+        {
+        case PRIORITY_HIGH:
+            highQueue.push(e);
+            break;
+        case PRIORITY_LOW:
+            coalesceOrPush(lowQueue, e);
+            break;
+        default:
+            normalQueue.push(e);
+            break;
+        }
     }
 
     void start()
@@ -57,19 +81,65 @@ public:
     {
         Event e;
 
-        while (queue.pop(e))
+        // 1. HIGH priority first
+        while (highQueue.pop(e))
         {
-            uint32_t bit = EVENT_BIT(e.type);
+            dispatch(e);
+        }
 
-            for (int i = 0; i < registry.size(); i++)
+        // 2. NORMAL
+        while (normalQueue.pop(e))
+        {
+            dispatch(e);
+        }
+
+        // 3. LOW
+        while (lowQueue.pop(e))
+        {
+            dispatch(e);
+        }
+    }
+
+    void dispatch(const Event &e)
+    {
+        uint32_t bit = EVENT_BIT(e.type);
+
+        for (int i = 0; i < registry.size(); i++)
+        {
+            IModule *m = registry.get(i);
+
+            if (m->eventMask() & bit)
             {
-                IModule *m = registry.get(i);
-
-                if (m->eventMask() & bit)
-                {
-                    m->onEvent(e);
-                }
+                m->onEvent(e);
             }
         }
+    }
+
+    void coalesceOrPush(EventQueue &q, const Event &e)
+    {
+        // Try to replace existing event of same type
+        if (replaceExisting(q, e))
+        {
+            return;
+        }
+
+        // Otherwise push normally
+        q.push(e);
+    }
+
+    bool replaceExisting(EventQueue &q, const Event &e)
+    {
+        for (uint16_t i = 0; i < EVENT_QUEUE_SIZE, i++)
+        {
+            Event &slot = q.buffer[i];
+
+            if (slot.type == e.type)
+            {
+                slot = e; // overwrite with latest
+                return true;
+            }
+        }
+
+        return false;
     }
 };

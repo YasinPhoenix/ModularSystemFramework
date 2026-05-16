@@ -14,5 +14,8 @@ public:
     virtual uint32_t eventMask() { return 0xFFFFFFFF; }
     // Default: listen to everyone (safe fallback)
 
+    // Update interval in ms
+    virtual uint32_t interval() { return 1000; }
+
     virtual void onEvent(const Event &e) {}
 };
