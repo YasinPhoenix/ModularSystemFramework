@@ -5,7 +5,7 @@ class WifiModule : public IModule
 {
 public:
     const char *name() override { return "WiFi"; }
-    ModuleCapability capabilities() override { return CAPABILITY_WIFI; }
+    ModuleCapability capabilities() override { return CAPABILITY_BIT(CAPABILITY_WIFI); }
 
     bool init() override
     {

@@ -11,6 +11,10 @@ struct Event
     EventData data;
 };
 
+// You're going to need to add event makers for each kind of event that you add in your project here
+// or you can make them manually everywhere you have them emitted but this is a cleaner approach for
+// bigger projects.
+
 static Event makeSensorEvent(float value, uint32_t source, uint32_t time)
 {
     Event e;

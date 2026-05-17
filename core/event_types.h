@@ -1,6 +1,8 @@
 #pragma once
 #include <stdint.h>
 
+// Well this is the part that you add your event types in order for the event subscribtion system to work.
+
 enum EventType
 {
     EVENT_NONE = 0,
@@ -10,7 +12,7 @@ enum EventType
     EVENT_DEFAULT
 };
 
-// Convert event type -> bitmask
+// Convert event type bitmask
 #define EVENT_BIT(e) (1 << (e))
 
 // Payloads (STRICT TYPES)

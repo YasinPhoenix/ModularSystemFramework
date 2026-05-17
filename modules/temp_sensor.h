@@ -8,7 +8,7 @@ class TempSensor : public IModule
 {
 public:
     const char *name() override { return "TempSensor"; }
-    ModuleCapability capabilities() override { return CAPABILITY_INPUT; }
+    ModuleCapability capabilities() override { return CAPABILITY_BIT(CAPABILITY_INPUT); }
 
     bool init() override { return true; }
 
