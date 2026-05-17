@@ -8,7 +8,7 @@ class TempSensor : public IModule
 {
 public:
     const char *name() override { return "TempSensor"; }
-    uint32_t capabilities() override { return 1 << 1; }
+    ModuleCapability capabilities() override { return CAPABILITY_INPUT; }
 
     bool init() override { return true; }
 
@@ -27,10 +27,7 @@ public:
         sys.emit(makeEvent(EVENT_SENSOR_UPDATE, 1, millis(), temp), PRIORITY_NORMAL);
     }
 
-    uint32_t eventMask() override
-    {
-        return 0; // Listen to nothing
-    }
+    uint32_t eventMask() override { return 0; } // Listen to nothing
 
     uint32_t updateInterval() override { return 500; }
 

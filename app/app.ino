@@ -12,7 +12,7 @@ void setup() {
     sys.addModule(&temp);
     sys.addModule(&wifi);
 
-    sys.start(); // starts Core 1 task
+    sys.start(); // starts Core 1 task (update processing)
 }
 
 void loop() {

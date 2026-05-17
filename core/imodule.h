@@ -1,11 +1,12 @@
 #pragma once
 #include "event.h"
+#include "module_capability.h"
 
 class IModule
 {
 public:
     virtual const char *name() = 0;
-    virtual uint32_t capabilities() = 0;
+    virtual ModuleCapability capabilities() = 0;
 
     virtual bool init() = 0;
     virtual void update() = 0;

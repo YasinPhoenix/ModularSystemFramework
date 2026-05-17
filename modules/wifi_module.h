@@ -5,7 +5,7 @@ class WifiModule : public IModule
 {
 public:
     const char *name() override { return "WiFi"; }
-    uint32_t capabilities() override { return 1 << 0; }
+    ModuleCapability capabilities() override { return CAPABILITY_WIFI; }
 
     bool init() override
     {
@@ -14,10 +14,7 @@ public:
 
     void update() override {}
 
-    uint32_t eventMask() override
-    {
-        return EVENT_BIT(EVENT_SENSOR_UPDATE);
-    }
+    uint32_t eventMask() override { return EVENT_BIT(EVENT_SENSOR_UPDATE); }
 
     uint32_t updateInterval() override { return 10; }
 
