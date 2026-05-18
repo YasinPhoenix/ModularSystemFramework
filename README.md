@@ -110,7 +110,7 @@ Instead of executing every module every loop, the system schedules updates based
     module_registry.h
     event_queue.h
     event_types.h
-    event_priority.h
+    event_priorities.h
 
 /modules
     temp_sensor.h
@@ -134,12 +134,12 @@ If you extend the system, you will need to add new event types here so modules c
 This defines the structure of events.
 If you add new event types with custom data, you should also extend the event payload structure or add helper constructors for cleaner usage.
 
-### event_priority.h
+### event_priorities.h
 
 Defines priority levels for events.
 If needed, you can extend this to support more granular scheduling (for example: realtime, background, deferred).
 
-### module_capability.h
+### module_capabilities.h
 
 This is intended to define module capabilities.
 Right now, it is mostly conceptual and not heavily enforced in logic, but it exists for future expansion where modules can be dynamically matched based on capabilities.
