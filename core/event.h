@@ -1,4 +1,5 @@
 #pragma once
+#include "system.h"
 #include "event_types.h"
 #include "event_priorities.h"
 #include "event_data_types.h"
@@ -16,34 +17,53 @@ struct Event
 // or you can make them manually everywhere you have them emitted but this is a cleaner approach for
 // bigger projects.
 
-static Event makeLogEvent(const char *msg,
-                          uint16_t source,
-                          LogLevel level = LOG_INFO,
-                          LogColor color = LOG_COLOR_WHITE,
-                          bool isBigMsg = false)
+static Event makeLogEvent(
+    const char *msg,
+    uint16_t source,
+    LogLevel level = LOG_INFO,
+    LogColor color = LOG_COLOR_WHITE)
 {
     Event e;
+    e.type = EVENT_LOG;
     e.sourceId = source;
     e.timestamp = millis();
-    
-    if (isBigMsg)
-    {
-        e.type = EVENT_LOG_BIG;
-        auto &bigLog = e.data.bigLog;
-        bigLog.level = level;
-        bigLog.color = color;
-        strncpy(bigLog.message, msg, LOG_MESSAGE_SIZE_BIG - 1);
-        bigLog.message[LOG_MESSAGE_SIZE_BIG - 1] = '\0';
-    }
-    else
-    {
-        e.type = EVENT_LOG;
-        auto &log = e.data.log;
-        log.level = level;
-        log.color = color;
-        strncpy(log.message, msg, LOG_MESSAGE_SIZE - 1);
-        log.message[LOG_MESSAGE_SIZE - 1] = '\0';
-    }
+
+    auto &log = e.data.log;
+
+    log.level = level;
+    log.color = color;
+    log.source = source;
+    log.timeStamp = e.timestamp;
+
+    strncpy(log.message, msg, LOG_MESSAGE_SIZE - 1);
+    log.message[LOG_MESSAGE_SIZE - 1] = '\0';
+
+    return e;
+}
+
+static Event makeLogEvent(
+    uint16_t source,
+    LogLevel level,
+    LogColor color,
+    const char *format,
+    ...)
+{
+    Event e;
+    e.type = EVENT_LOG;
+    e.sourceId = source;
+    e.timestamp = millis();
+
+    auto &log = e.data.log;
+
+    log.level = level;
+    log.color = color;
+    log.source = source;
+    log.timeStamp = e.timestamp;
+
+    va_list args;
+    va_start(args, format);
+    vsnprintf(log.message, LOG_MESSAGE_SIZE, format, args);
+    va_end(args);
 
     return e;
 }

@@ -1,57 +1,69 @@
 #pragma once
 #include "../core/imodule.h"
+#include "helpers/log_types.h"
+#include "helpers/wifi_logger.h"
+#include "../core/api.h"
 
 class LoggerModule : public IModule
 {
 public:
-    bool init() override { Serial.begin(115200); }
+    bool init() override
+    {
+        Serial.begin(115200);
+
+        if (!wifiHost || !wifiPort)
+            return false;
+
+        wifiLogger.begin(wifiHost, wifiPort);
+
+        return true;
+    }
+
+    void setWiFiLogger(const char *host, uint16_t port)
+    {
+        wifiHost = host;
+        wifiPort = port;
+    }
+
+    void setLogLevel(LogLevel l) { minLogLevel = l; }
+    void setColorUse(bool b) { useColors = b; }
+
+    uint32_t eventMask() override { EVENT_BIT(EVENT_LOG); }
+    void update() override { wifiLogger.update(); }
 
     void onEvent(const Event &e) override
     {
-        Serial.print(COL_GREEN);
-        Serial.print("[");
-        Serial.print(e.timestamp);
-        Serial.print("]");
-        Serial.print(COL_BLUE);
-        Serial.print("[");
-        Serial.print(e.sourceId);
-        Serial.print("] ");
+        const auto &log = e.data.log;
 
-        switch (e.type)
-        {
-        case EVENT_LOG:
-        {
-            auto &log = e.data.log;
-            Serial.print(getColorCode(log.color));
-            Serial.print(getLogLevel(log.level));
-            Serial.print(" ");
-            Serial.print(log.message);
-            break;
-        }
+        if (log.level < minLogLevel)
+            return;
 
-        case EVENT_LOG_BIG:
-        {
-            auto &biglog = e.data.bigLog;
-            Serial.print(getColorCode(biglog.color));
-            Serial.print(getLogLevel(biglog.level));
-            Serial.print(" ");
-            Serial.print(biglog.message);
-            break;
-        }
+        char buffer[160];
 
-        default:
-            printEventCall(e);
-            break;
-        }
+        snprintf(buffer, sizeof(buffer),
+                 "[%lu][SRC: %u][%s] %s",
+                 log.timeStamp,
+                 log.source,
+                 toString(log.level),
+                 log.message);
 
-        Serial.println(COL_RESET);
+        if (useColors)
+            Serial.print(toAnsi(log.color));
+
+        Serial.println(buffer); // Serial output
+
+        if (useColors)
+            Serial.println("\033[0m");
+
+        wifiLogger.log(buffer); // WiFi output
     }
 
 private:
-    void printEventCall(const Event &e)
-    {
-        Serial.print(COL_YELLOW);
-        Serial.print("Event called: ");
-        Serial.print(e.type);
-    }
+    LogLevel minLogLevel = LOG_INFO;
+    bool useColors = true;
+
+    WiFiLogger wifiLogger;
+
+    const char *wifiHost;
+    uint16_t wifiPort;
 };
