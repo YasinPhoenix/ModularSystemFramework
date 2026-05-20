@@ -18,7 +18,6 @@ public:
         const char *apPass = 0)
     {
         this->mode = mode;
-
         this->ssid = ssid;
         this->pass = pass;
         if (apSsid)
@@ -28,25 +27,6 @@ public:
         if (apSsid)
             hasApCred = true;
         hasStaCred = true;
-
-        switch (mode)
-        {
-        case WIFI_MODULE_MODE_AP_STA:
-            WiFi.mode(WIFI_AP_STA);
-            break;
-
-        case WIFI_MODULE_MODE_STA:
-            WiFi.mode(WIFI_STA);
-            break;
-
-        case WIFI_MODULE_MODE_AP:
-            WiFi.mode(WIFI_AP);
-            break;
-
-        default:
-            LOG_WARN(sys, "Wrong type entered for wifi_module mode!", SRC_WIFI);
-            break;
-        }
     }
 
     const char *name() override { return "WiFi"; }
@@ -54,6 +34,8 @@ public:
 
     bool init() override
     {
+        setMode(mode);
+
         if (!connect())
             return false;
 
@@ -67,10 +49,16 @@ public:
 
     void update() override
     {
+        uint32_t now = millis();
+
         if (mode == WIFI_MODULE_MODE_AP || mode == WIFI_MODULE_MODE_AP_STA)
         {
             clientCount = WiFi.AP.stationCount();
-            sys.emit(makeLogEvent(SRC_WIFI, LOG_INFO, LOG_COLOR_WHITE, "AP stations: %d", clientCount));
+            if (now - lastApStaCountLog > apStaLogInterval)
+            {
+                sys.emit(makeLogEvent(SRC_WIFI, LOG_INFO, LOG_COLOR_WHITE, "AP stations: %d", clientCount));
+                lastApStaCountLog = now;
+            }
             if (mode == WIFI_MODULE_MODE_AP)
                 return;
         }
@@ -92,6 +80,7 @@ public:
             if (!WiFi.isConnected() && state != WIFI_CONNECTING)
             {
                 state = WIFI_DISCONNECTED;
+                disconnectionTime = now;
                 EVENT_WIFI_DISCONNECTED(SRC_WIFI);
                 LOG_INFO(sys, "WiFi Disconnected!", SRC_WIFI);
             }
@@ -146,21 +135,47 @@ public:
         return true;
     }
 
-    void setMode(WiFiModeState mode)
+    bool setMode(WiFiModeState mode)
     {
-        this->mode = mode;
+        switch (this->mode)
+        {
+        case WIFI_MODULE_MODE_AP_STA:
+        {
+            if (!stopAp() || !disconnectSta())
+                return false;
+            break;
+        }
+        case WIFI_MODULE_MODE_AP:
+        {
+            if (!stopAp())
+                return false;
+            break;
+        }
+        case WIFI_MODULE_MODE_STA:
+        {
+            if (!disconnectSta())
+                return false;
+            break;
+        }
+        }
 
         switch (mode)
         {
-        case WIFI_MODULE_MODE_AP_STA:
-            WiFi.mode(WIFI_AP_STA) break;
-
-        case WIFI_MODULE_MODE_AP:
-            WiFi.mode(WIFI_AP) break;
-
-        case WIFI_MODULE_MODE_STA:
-            WiFi.mode(WIFI_STA) break;
+            case WIFI_MODULE_MODE_AP_STA:
+            WiFi.mode(WIFI_AP_STA);
+            break;
+            
+            case WIFI_MODULE_MODE_AP:
+            WiFi.mode(WIFI_AP);
+            break;
+            
+            case WIFI_MODULE_MODE_STA:
+            WiFi.mode(WIFI_STA);
+            break;
         }
+        
+        this->mode = mode;
+        return connect(true);
     }
 
     inline WiFiConnectionState getConnectionState() const { return state; }
@@ -180,6 +195,8 @@ private:
     uint32_t disconnectionTime = 0;
     uint32_t reconnectTimer = 10 * 1000; // 10 sec
 
+    uint32_t apStaLogInterval = 10 * 1000;
+
     IPAddress ip;
 
     uint8_t clientCount = 0;
@@ -192,7 +209,7 @@ private:
     const char *apPass;
     bool hasApCred = false;
 
-    bool connect()
+    bool connect(bool ignoreTimer = false;)
     {
         if (millis() - disconnectionTime < reconnectTimer)
             return false;
@@ -209,7 +226,7 @@ private:
         case WIFI_MODULE_MODE_AP:
             return startAp();
 
-        default:
+        case WIFI_MODULE_MODE_AP_STA:
         {
             if (!hasStaCred || !startAp())
                 return false;
@@ -229,4 +246,7 @@ private:
             return false;
         return true;
     }
+
+    inline bool stopAp() { return WiFi.AP.end(); }
+    inline bool disconnectSta() { return WiFi.disconnect(); }
 };
