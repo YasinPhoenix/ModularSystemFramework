@@ -1,8 +1,9 @@
 #pragma once
 #include "../core/imodule.h"
+#include "../core/api.h"
+#include "../core/event/event_source.h"
 #include "helpers/log_helpers.h"
 #include "helpers/wifi_logger.h"
-#include "../core/api.h"
 
 class LoggerModule : public IModule
 {
@@ -43,9 +44,9 @@ public:
         char buffer[160];
 
         snprintf(buffer, sizeof(buffer),
-                 "[%lu][SRC: %u][%s] %s",
+                 "[%lu][SRC: %s][%s] %s",
                  log.timeStamp,
-                 log.source,
+                 toString(log.source),
                  toString(log.level),
                  log.message);
 
