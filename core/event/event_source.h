@@ -2,6 +2,7 @@
 
 enum EventSource
 {
+    SRC_APP,
     SRC_LOGGER,
     SRC_WIFI,
     SRC_SENSOR_TEMP
