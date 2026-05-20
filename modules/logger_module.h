@@ -14,10 +14,8 @@ public:
     {
         Serial.begin(115200);
 
-        if (!wifiHost || !wifiPort)
-            return false;
-
-        wifiLogger.begin(wifiHost, wifiPort);
+        if (wifiHost && wifiPort)
+            wifiLogger.begin(wifiHost, wifiPort);
 
         return true;
     }
@@ -31,21 +29,28 @@ public:
     void setLogLevel(LogLevel l) { minLogLevel = l; }
     void setColorUse(bool b) { useColors = b; }
 
-    uint32_t eventMask() override { EVENT_BIT(EVENT_LOG); }
+    uint32_t eventMask() override { return EVENT_BIT(EVENT_LOG); }
     void update() override { wifiLogger.update(); }
 
     void onEvent(const Event &e) override
     {
         const auto &log = e.data.log;
 
-        if (log.level < minLogLevel)
+        if (log.level > minLogLevel)
             return;
 
         char buffer[160];
 
+        uint32_t time = log.timeStamp / 1000;
+        uint16_t hours = time / 3600;
+        uint8_t minutes = (time % 3600) / 60;
+        uint8_t seconds = (time % 60);
+
         snprintf(buffer, sizeof(buffer),
-                 "[%lu][SRC: %s][%s] %s",
-                 log.timeStamp,
+                 "[%d:%d:%d][SRC: %s][%s] %s",
+                 hours,
+                 minutes,
+                 seconds,
                  toString(log.source),
                  toString(log.level),
                  log.message);

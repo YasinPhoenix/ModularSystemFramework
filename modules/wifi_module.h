@@ -235,7 +235,7 @@ private:
 
     bool connect(bool ignoreTimer = false)
     {
-        if (millis() - disconnectionTime < reconnectTimer)
+        if (millis() - disconnectionTime < reconnectTimer && !ignoreTimer)
             return false;
 
         switch (mode)

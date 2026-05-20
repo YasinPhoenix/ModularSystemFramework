@@ -34,6 +34,7 @@ private:
                     entry.lastUpdate = now;
                     m->update();
                 }
+                delay(10);
             }
 
             vTaskDelay(1); // yield
@@ -41,10 +42,7 @@ private:
     }
 
 public:
-    bool addModule(IModule *m)
-    {
-        return registry.add(m);
-    }
+    bool addModule(IModule *m) { return registry.add(m); }
 
     EventQueue &highEvents() { return highQueue; }
     EventQueue &normalEvents() { return normalQueue; }

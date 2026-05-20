@@ -12,20 +12,18 @@ LoggerModule logger;
 
 void setup()
 {
-    // sys.addModule(&temp);
-    sys.addModule(&logger);
-    sys.addModule(&wifi);
-
-    logger.init();
+    //Serial.begin(115200);
     logger.setLogLevel(LOG_DEBUG);
+    logger.setColorUse(false);
+    sys.addModule(&logger);
 
     wifi.config(WIFI_MODULE_MODE_AP_STA, "OMEGA", "phoenix87", "ESP_AP_TEST", "12345678");
-    wifi.init();
+    sys.addModule(&wifi);
 
     sys.start(); // starts Core 1 task (update processing)
 
-    sys.emit(makeLogEvent(SRC_APP, LOG_INFO, LOG_COLOR_WHITE, "Program started!"));
-    LOG_INFO(sys, "Program Started!", SRC_APP);
+    // sys.emit(makeLogEvent(SRC_APP, LOG_INFO, LOG_COLOR_WHITE, "Program started!"));
+    // LOG_INFO(sys, "Program Started!", SRC_APP);
 }
 
 void loop()
