@@ -153,16 +153,13 @@ public:
         switch (mode)
         {
         case WIFI_MODULE_MODE_AP_STA:
-            WiFi.mode(WIFI_AP_STA)
-            break;
-            
-            case WIFI_MODULE_MODE_AP:
-            WiFi.mode(WIFI_AP)
-            break;
-            
-            case WIFI_MODULE_MODE_STA:
-            WiFi.mode(WIFI_STA)
-            break;
+            WiFi.mode(WIFI_AP_STA) break;
+
+        case WIFI_MODULE_MODE_AP:
+            WiFi.mode(WIFI_AP) break;
+
+        case WIFI_MODULE_MODE_STA:
+            WiFi.mode(WIFI_STA) break;
         }
     }
 
@@ -210,26 +207,26 @@ private:
             return true;
         }
         case WIFI_MODULE_MODE_AP:
-        {
-            if (!hasApCred)
-                return false;
-            WiFi.AP.begin();
-            WiFi.AP.create(apSsid, apPass);
-            if (!WiFi.AP.waitStatusBits(ESP_NETIF_STARTED_BIT, 1000))
-                return false;
-            return true;
-        }
+            return startAp();
+
         default:
         {
-            if (!hasStaCred || !hasApCred)
-                return false;
-            WiFi.AP.begin();
-            WiFi.AP.create(apSsid, apPass);
-            if (!WiFi.AP.waitStatusBits(ESP_NETIF_STARTED_BIT, 1000))
+            if (!hasStaCred || !startAp())
                 return false;
             WiFi.begin(ssid, pass);
             return true;
         }
         }
+    }
+
+    bool startAp()
+    {
+        if (!hasApCred)
+            return false;
+        WiFi.AP.begin();
+        WiFi.AP.create(apSsid, apPass);
+        if (!WiFi.AP.waitStatusBits(ESP_NETIF_STARTED_BIT, 1000))
+            return false;
+        return true;
     }
 };
