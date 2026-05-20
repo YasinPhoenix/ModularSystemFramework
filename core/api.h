@@ -1,6 +1,6 @@
 #pragma once
 #include "system.h"
-#include "event.h"
+#include "event/event.h"
 
 // ---------- Logger ----------
 
@@ -15,3 +15,10 @@
 
 #define LOG_DEBUG(sys, msg, src) \
     sys.emit(makeLogEvent(msg, src, LOG_DEBUG, LOG_COLOR_CYAN));
+
+// ---------- WiFi ----------
+
+#define EVENT_WIFI_CONNECTED(src) \
+    makeWiFiEvent(true, src);
+#define EVENT_WIFI_DISCONNECTED(src) \
+    makeWiFiEvent(false, src);

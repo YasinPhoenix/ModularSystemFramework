@@ -1,0 +1,19 @@
+#pragma once
+
+enum WiFiModeState {
+    WIFI_MODULE_MODE_STA,
+    WIFI_MODULE_MODE_AP,
+    WIFI_MODULE_MODE_AP_STA
+};
+
+enum WiFiConnectionState{
+    WIFI_IDLE,
+    WIFI_CONNECTING,
+    WIFI_CONNECTED,
+    WIFI_DISCONNECTED,
+    WIFI_RECONNECTIONG
+};
+
+#define WIFI_SSID_MAX_LEN 32
+#define WIFI_PASS_MAX_LEN 32    
+#define WIFI_PASS_MIN_LEN 8    

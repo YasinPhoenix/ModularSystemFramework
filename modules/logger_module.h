@@ -1,12 +1,14 @@
 #pragma once
 #include "../core/imodule.h"
-#include "helpers/log_types.h"
+#include "helpers/log_helpers.h"
 #include "helpers/wifi_logger.h"
 #include "../core/api.h"
 
 class LoggerModule : public IModule
 {
 public:
+    const char *name() override { return "Logger"; }
+
     bool init() override
     {
         Serial.begin(115200);

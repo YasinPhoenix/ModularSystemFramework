@@ -1,6 +1,6 @@
 #pragma once
 #include "module_registry.h"
-#include "event_queue.h"
+#include "event/event_queue.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 

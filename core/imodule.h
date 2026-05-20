@@ -1,5 +1,5 @@
 #pragma once
-#include "event.h"
+#include "event/event.h"
 #include "module_capabilities.h"
 
 class IModule

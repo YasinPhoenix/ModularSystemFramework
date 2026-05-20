@@ -24,7 +24,7 @@ public:
 
         float temp = readTemp();
 
-        sys.emit(makeSensorEvent(temp, 1, millis()), PRIORITY_NORMAL);
+        sys.emit(makeSensorEvent(temp, SRC_SENSOR_TEMP, millis()), PRIORITY_NORMAL);
     }
 
     uint32_t eventMask() override { return 0; } // Listen to nothing
