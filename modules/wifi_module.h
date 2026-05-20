@@ -146,11 +146,29 @@ public:
         return true;
     }
 
+    void setMode(WiFiModeState mode)
+    {
+        this->mode = mode;
+
+        switch (mode)
+        {
+        case WIFI_MODULE_MODE_AP_STA:
+            WiFi.mode(WIFI_AP_STA)
+            break;
+            
+            case WIFI_MODULE_MODE_AP:
+            WiFi.mode(WIFI_AP)
+            break;
+            
+            case WIFI_MODULE_MODE_STA:
+            WiFi.mode(WIFI_STA)
+            break;
+        }
+    }
+
     inline WiFiConnectionState getConnectionState() const { return state; }
 
     inline bool isConnected() const { return state == WIFI_CONNECTED; }
-
-    inline void setMode(WiFiModeState mode) { this->mode = mode; }
 
     inline WiFiModeState getMode() const { return mode; }
 
