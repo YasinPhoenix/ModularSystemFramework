@@ -13,15 +13,15 @@ inline const char *toString(EventSource s)
     switch (s)
     {
     case SRC_LOGGER:
-        return "SRC_LOGGER";
+        return "LOGGER";
 
     case SRC_WIFI:
-        return "SRC_WIFI";
+        return "WIFI";
 
     case SRC_SENSOR_TEMP:
-        return "SRC_SENSOR_TEMP";
+        return "SENSOR_TEMP";
 
     default:
-        return "SRC_UNKNOWN";
+        return "UNKNOWN";
     }
 }
