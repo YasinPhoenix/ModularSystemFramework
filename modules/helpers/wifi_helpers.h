@@ -8,6 +8,7 @@ enum WiFiModeState {
 
 enum WiFiConnectionState{
     WIFI_IDLE,
+    WIFI_AP_ONLY,
     WIFI_CONNECTING,
     WIFI_CONNECTED,
     WIFI_DISCONNECTED,
@@ -16,4 +17,4 @@ enum WiFiConnectionState{
 
 #define WIFI_SSID_MAX_LEN 32
 #define WIFI_PASS_MAX_LEN 32    
-#define WIFI_PASS_MIN_LEN 8    
+#define WIFI_PASS_MIN_LEN 8  

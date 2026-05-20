@@ -6,7 +6,7 @@ class IModule
 {
 public:
     virtual const char *name() = 0;
-    virtual uint16_t capabilities() = 0;
+    virtual uint16_t capabilities() { return 0xFFFFFFFF; }
 
     virtual bool init() = 0;
     virtual void update() = 0;

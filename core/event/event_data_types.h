@@ -8,7 +8,7 @@
 struct LogData{
     LogLevel level;
     LogColor color;
-    uint16_t source;
+    EventSource source;
     uint32_t timeStamp;
     char message[LOG_MESSAGE_SIZE];
 };

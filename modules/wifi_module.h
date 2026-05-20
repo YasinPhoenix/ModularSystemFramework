@@ -6,6 +6,7 @@
 #include "helpers/wifi_helpers.h"
 
 extern System sys;
+static void wifiEvent(arduino_event_id_t event, arduino_event_info_t info);
 
 class WifiModule : public IModule
 {
@@ -18,12 +19,24 @@ public:
         const char *apPass = 0)
     {
         this->mode = mode;
-        this->ssid = ssid;
-        this->pass = pass;
+        strncpy(this->ssid, ssid, WIFI_SSID_MAX_LEN);
+        this->ssid[WIFI_SSID_MAX_LEN] = '\0';
+
+        strncpy(this->pass, pass, WIFI_PASS_MAX_LEN);
+        this->pass[WIFI_PASS_MAX_LEN] = '\0';
+
         if (apSsid)
-            this->apSsid = apSsid;
+        {
+            strncpy(this->apSsid, apSsid, WIFI_SSID_MAX_LEN);
+            this->apSsid[WIFI_SSID_MAX_LEN] = '\0';
+        }
+
         if (apPass)
-            this->apPass = apPass;
+        {
+            strncpy(this->apPass, apPass, WIFI_PASS_MAX_LEN);
+            this->apPass[WIFI_PASS_MAX_LEN] = '\0';
+        }
+
         if (apSsid)
             hasApCred = true;
         hasStaCred = true;
@@ -34,17 +47,8 @@ public:
 
     bool init() override
     {
-        setMode(mode);
-
-        if (!connect())
-            return false;
-
-        if (mode == WIFI_MODULE_MODE_AP)
-            state = WIFI_IDLE;
-        else
-            state = WIFI_CONNECTING;
-
-        return true;
+        WiFi.onEvent(wifiEvent);
+        return setModeAndReconnect(mode);
     }
 
     void update() override
@@ -53,7 +57,6 @@ public:
 
         if (mode == WIFI_MODULE_MODE_AP || mode == WIFI_MODULE_MODE_AP_STA)
         {
-            clientCount = WiFi.AP.stationCount();
             if (now - lastApStaCountLog > apStaLogInterval)
             {
                 sys.emit(makeLogEvent(SRC_WIFI, LOG_INFO, LOG_COLOR_WHITE, "AP stations: %d", clientCount));
@@ -63,43 +66,9 @@ public:
                 return;
         }
 
-        switch (state)
-        {
-        case WIFI_CONNECTING:
-        {
-            if (WiFi.isConnected())
-            {
-                state = WIFI_CONNECTED;
-                EVENT_WIFI_CONNECTED(SRC_WIFI);
-                LOG_INFO(sys, "WiFi Connected!", SRC_WIFI);
-            }
-            break;
-        }
-        case WIFI_CONNECTED:
-        {
-            if (!WiFi.isConnected() && state != WIFI_CONNECTING)
-            {
-                state = WIFI_DISCONNECTED;
-                disconnectionTime = now;
-                EVENT_WIFI_DISCONNECTED(SRC_WIFI);
-                LOG_INFO(sys, "WiFi Disconnected!", SRC_WIFI);
-            }
-            break;
-        }
-        case WIFI_DISCONNECTED:
-        {
+        if (state == WIFI_DISCONNECTED)
             if (connect())
-            {
-                state = WIFI_CONNECTING;
                 LOG_INFO(sys, "WiFi reconnecting!", SRC_WIFI);
-            }
-
-            break;
-        }
-        default:
-            LOG_WARN(sys, "Unexpected state in wifi_module update!", SRC_WIFI);
-            break;
-        }
     }
 
     // uint32_t eventMask() override { return EVENT_BIT(EVENT_SENSOR_UPDATE); }
@@ -116,8 +85,11 @@ public:
             strlen(pass) < WIFI_PASS_MIN_LEN)
             return false;
 
-        this->ssid = ssid;
-        this->pass = pass;
+        strncpy(this->ssid, ssid, WIFI_SSID_MAX_LEN);
+        this->ssid[WIFI_SSID_MAX_LEN] = '\0';
+
+        strncpy(this->pass, pass, WIFI_PASS_MAX_LEN);
+        this->pass[WIFI_PASS_MAX_LEN] = '\0';
         hasStaCred = true;
         return true;
     }
@@ -129,13 +101,17 @@ public:
             strlen(pass) < WIFI_PASS_MIN_LEN)
             return false;
 
-        apSsid = ssid;
-        apPass = pass;
+        strncpy(this->apSsid, ssid, WIFI_SSID_MAX_LEN);
+        this->apSsid[WIFI_SSID_MAX_LEN] = '\0';
+
+        strncpy(this->apPass, pass, WIFI_PASS_MAX_LEN);
+        this->apPass[WIFI_PASS_MAX_LEN] = '\0';
+
         hasApCred = true;
         return true;
     }
 
-    bool setMode(WiFiModeState mode)
+    bool setModeAndReconnect(WiFiModeState mode)
     {
         switch (this->mode)
         {
@@ -161,21 +137,68 @@ public:
 
         switch (mode)
         {
-            case WIFI_MODULE_MODE_AP_STA:
+        case WIFI_MODULE_MODE_AP_STA:
             WiFi.mode(WIFI_AP_STA);
             break;
-            
-            case WIFI_MODULE_MODE_AP:
+
+        case WIFI_MODULE_MODE_AP:
             WiFi.mode(WIFI_AP);
             break;
-            
-            case WIFI_MODULE_MODE_STA:
+
+        case WIFI_MODULE_MODE_STA:
             WiFi.mode(WIFI_STA);
             break;
         }
-        
+
         this->mode = mode;
         return connect(true);
+    }
+
+    void onWiFiEvent(arduino_event_id_t event, arduino_event_info_t info)
+    {
+        switch (event)
+        {
+        case ARDUINO_EVENT_WIFI_STA_START:
+            LOG_INFO(sys, "STA started!", SRC_WIFI);
+            break;
+        case ARDUINO_EVENT_WIFI_STA_CONNECTED:
+            state = WIFI_CONNECTED;
+            EVENT_WIFI_CONNECTED(SRC_WIFI);
+            LOG_INFO(sys, "WiFi Connected!", SRC_WIFI);
+            break;
+        case ARDUINO_EVENT_WIFI_STA_GOT_IP:
+            ip = WiFi.STA.localIP();
+            sys.emit(makeLogEvent(SRC_WIFI, LOG_INFO, LOG_COLOR_WHITE, "STA IP: %s", ip.toString()));
+            break;
+        case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
+            state = WIFI_DISCONNECTED;
+            disconnectionTime = millis();
+            EVENT_WIFI_DISCONNECTED(SRC_WIFI);
+            LOG_INFO(sys, "WiFi Disconnected!", SRC_WIFI);
+            break;
+        case ARDUINO_EVENT_WIFI_STA_STOP:
+            LOG_INFO(sys, "STA stopped!", SRC_WIFI);
+            break;
+        case ARDUINO_EVENT_WIFI_AP_START:
+            LOG_INFO(sys, "AP started!", SRC_WIFI);
+            break;
+        case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
+            clientCount++;
+            LOG_INFO(sys, "New AP client connected!", SRC_WIFI);
+            break;
+        case ARDUINO_EVENT_WIFI_AP_STAIPASSIGNED:
+            sys.emit(makeLogEvent(SRC_WIFI, LOG_INFO, LOG_COLOR_WHITE,
+                                  "AP STA IP assigned: %s",
+                                  IPAddress(info.wifi_ap_staipassigned.ip.addr).toString()));
+            break;
+        case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED:
+            clientCount--;
+            LOG_INFO(sys, "AP client disconnected!", SRC_WIFI);
+            break;
+        case ARDUINO_EVENT_WIFI_AP_STOP:
+            LOG_INFO(sys, "AP stopped!", SRC_WIFI);
+            break;
+        }
     }
 
     inline WiFiConnectionState getConnectionState() const { return state; }
@@ -195,21 +218,22 @@ private:
     uint32_t disconnectionTime = 0;
     uint32_t reconnectTimer = 10 * 1000; // 10 sec
 
+    uint32_t lastApStaCountLog = 0;
     uint32_t apStaLogInterval = 10 * 1000;
 
     IPAddress ip;
 
     uint8_t clientCount = 0;
 
-    const char *ssid;
-    const char *pass;
+    char ssid[WIFI_SSID_MAX_LEN + 1];
+    char pass[WIFI_PASS_MAX_LEN + 1];
     bool hasStaCred = false;
 
-    const char *apSsid;
-    const char *apPass;
+    char apSsid[WIFI_SSID_MAX_LEN + 1];
+    char apPass[WIFI_PASS_MAX_LEN + 1];
     bool hasApCred = false;
 
-    bool connect(bool ignoreTimer = false;)
+    bool connect(bool ignoreTimer = false)
     {
         if (millis() - disconnectionTime < reconnectTimer)
             return false;
@@ -217,22 +241,22 @@ private:
         switch (mode)
         {
         case WIFI_MODULE_MODE_STA:
-        {
-            if (!hasStaCred)
+            if (!startSta())
                 return false;
-            WiFi.begin(ssid, pass);
+            state = WIFI_CONNECTING;
             return true;
-        }
+
         case WIFI_MODULE_MODE_AP:
-            return startAp();
+            if (!startAp())
+                return false;
+            state = WIFI_AP_ONLY;
+            return true;
 
         case WIFI_MODULE_MODE_AP_STA:
-        {
-            if (!hasStaCred || !startAp())
+            if (!startSta() || !startAp())
                 return false;
-            WiFi.begin(ssid, pass);
+            state = WIFI_CONNECTING;
             return true;
-        }
         }
     }
 
@@ -247,6 +271,22 @@ private:
         return true;
     }
 
+    bool startSta()
+    {
+        if (!hasStaCred)
+            return false;
+
+        WiFi.begin(ssid, pass);
+        return true;
+    }
+
     inline bool stopAp() { return WiFi.AP.end(); }
     inline bool disconnectSta() { return WiFi.disconnect(); }
 };
+
+extern WifiModule wifi;
+
+static void wifiEvent(arduino_event_id_t event, arduino_event_info_t info)
+{
+    wifi.onWiFiEvent(event, info);
+}
