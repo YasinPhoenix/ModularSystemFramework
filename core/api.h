@@ -4,8 +4,14 @@
 
 // ---------- Logger ----------
 
+#define LOG(sys, src, lvl, clr, fmt, ...) \
+    sys.emit(makeLogEvent(src, lvl, clr, fmt, ...));
+
 #define LOG_INFO(sys, msg, src) \
     sys.emit(makeLogEvent(msg, src, LOG_INFO));
+
+#define LOG_INFO(sys, msg, src, clr) \
+    sys.emit(makeLogEvent(msg, src, LOG_INFO, clr));
 
 #define LOG_WARN(sys, msg, src) \
     sys.emit(makeLogEvent(msg, src, LOG_WARN, LOG_COLOR_YELLOW));
