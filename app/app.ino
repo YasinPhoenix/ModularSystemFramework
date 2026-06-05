@@ -3,6 +3,7 @@
 // #include "../modules/temp_sensor.h"
 #include "../modules/wifi_module.h"
 #include "../modules/logger_module.h"
+#include "creds.h"
 
 System sys;
 
@@ -12,12 +13,12 @@ LoggerModule logger;
 
 void setup()
 {
-    //Serial.begin(115200);
     logger.setLogLevel(LOG_DEBUG);
-    logger.setColorUse(false);
+    logger.setColorUse(true);
+    logger.setWiFiLogger(WIFI_LOGGER_IP, WIFI_LOGGER_PORT);
     sys.addModule(&logger);
 
-    wifi.config(WIFI_MODULE_MODE_AP_STA, "OMEGA", "phoenix87", "ESP_AP_TEST", "12345678");
+    wifi.config(WIFI_MODULE_MODE_STA, WIFI_SSID, WIFI_PASS);
     sys.addModule(&wifi);
 
     sys.start(); // starts Core 1 task (update processing)
