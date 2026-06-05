@@ -57,18 +57,17 @@ public:
 
         if (mode == WIFI_MODULE_MODE_AP || mode == WIFI_MODULE_MODE_AP_STA)
         {
-            if (now - lastApStaCountLog > apStaLogInterval)
-            {
-                sys.emit(makeLogEvent(SRC_WIFI, LOG_INFO, LOG_COLOR_WHITE, "AP stations: %d", clientCount));
-                lastApStaCountLog = now;
-            }
+            //if (now - lastApStaCountLog > apStaLogInterval)
+            //{
+            //    lastApStaCountLog = now;
+            //}
             if (mode == WIFI_MODULE_MODE_AP)
                 return;
         }
 
         if (state == WIFI_DISCONNECTED)
             if (connect())
-                LOG_INFO(sys, "WiFi reconnecting!", SRC_WIFI);
+                LOG_INFO(sys, "WiFi reconnecting!", SRC_WIFI, LOG_COLOR_BLUE);
     }
 
     // uint32_t eventMask() override { return EVENT_BIT(EVENT_SENSOR_UPDATE); }
@@ -159,44 +158,47 @@ public:
         switch (event)
         {
         case ARDUINO_EVENT_WIFI_STA_START:
-            LOG_INFO(sys, "STA started!", SRC_WIFI);
+            LOG_INFO(sys, "STA started!", SRC_WIFI, LOG_COLOR_BLUE);
             break;
         case ARDUINO_EVENT_WIFI_STA_CONNECTED:
             state = WIFI_CONNECTED;
             EVENT_WIFI_CONNECTED(SRC_WIFI);
-            LOG_INFO(sys, "WiFi Connected!", SRC_WIFI);
+            LOG_INFO(sys, "WiFi Connected!", SRC_WIFI, LOG_COLOR_BLUE);
             break;
         case ARDUINO_EVENT_WIFI_STA_GOT_IP:
             ip = WiFi.STA.localIP();
-            sys.emit(makeLogEvent(SRC_WIFI, LOG_INFO, LOG_COLOR_WHITE, "STA IP: %s", ip.toString()));
+            sys.emit(makeLogEvent(SRC_WIFI, LOG_INFO, LOG_COLOR_BLUE, "STA IP: %s", ip.toString().c_str()));
             break;
         case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
+            if (state == WIFI_DISCONNECTED)
+                break;
             state = WIFI_DISCONNECTED;
             disconnectionTime = millis();
             EVENT_WIFI_DISCONNECTED(SRC_WIFI);
-            LOG_INFO(sys, "WiFi Disconnected!", SRC_WIFI);
+            LOG_INFO(sys, "WiFi Disconnected!", SRC_WIFI, LOG_COLOR_BLUE);
             break;
         case ARDUINO_EVENT_WIFI_STA_STOP:
-            LOG_INFO(sys, "STA stopped!", SRC_WIFI);
+            LOG_INFO(sys, "STA stopped!", SRC_WIFI, LOG_COLOR_BLUE);
             break;
         case ARDUINO_EVENT_WIFI_AP_START:
-            LOG_INFO(sys, "AP started!", SRC_WIFI);
+            LOG_INFO(sys, "AP started!", SRC_WIFI, LOG_COLOR_BLUE);
             break;
         case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
             clientCount++;
-            LOG_INFO(sys, "New AP client connected!", SRC_WIFI);
+            LOG_INFO(sys, "New AP client connected!", SRC_WIFI, LOG_COLOR_BLUE);
+            sys.emit(makeLogEvent(SRC_WIFI, LOG_INFO, LOG_COLOR_BLUE, "AP stations: %d", clientCount));
             break;
         case ARDUINO_EVENT_WIFI_AP_STAIPASSIGNED:
-            sys.emit(makeLogEvent(SRC_WIFI, LOG_INFO, LOG_COLOR_WHITE,
+            sys.emit(makeLogEvent(SRC_WIFI, LOG_INFO, LOG_COLOR_BLUE,
                                   "AP STA IP assigned: %s",
-                                  IPAddress(info.wifi_ap_staipassigned.ip.addr).toString()));
+                                  IPAddress(info.wifi_ap_staipassigned.ip.addr).toString().c_str()));
             break;
         case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED:
             clientCount--;
-            LOG_INFO(sys, "AP client disconnected!", SRC_WIFI);
+            LOG_INFO(sys, "AP client disconnected!", SRC_WIFI, LOG_COLOR_BLUE);
             break;
         case ARDUINO_EVENT_WIFI_AP_STOP:
-            LOG_INFO(sys, "AP stopped!", SRC_WIFI);
+            LOG_INFO(sys, "AP stopped!", SRC_WIFI, LOG_COLOR_BLUE);
             break;
         }
     }
@@ -218,8 +220,8 @@ private:
     uint32_t disconnectionTime = 0;
     uint32_t reconnectTimer = 10 * 1000; // 10 sec
 
-    uint32_t lastApStaCountLog = 0;
-    uint32_t apStaLogInterval = 10 * 1000;
+    //uint32_t lastApStaCountLog = 0;
+    //uint32_t apStaLogInterval = 10 * 1000;
 
     IPAddress ip;
 
