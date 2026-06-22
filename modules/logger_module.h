@@ -3,7 +3,6 @@
 #include "../core/api.h"
 #include "../core/event/event_source.h"
 #include "helpers/log_helpers.h"
-#include "helpers/wifi_logger.h"
 
 class LoggerModule : public IModule
 {
@@ -13,24 +12,14 @@ public:
     bool init() override
     {
         Serial.begin(115200);
-
-        if (wifiHost && wifiPort)
-            wifiLogger.begin(wifiHost, wifiPort);
-
         return true;
     }
 
-    void setWiFiLogger(const char *host, uint16_t port)
-    {
-        wifiHost = host;
-        wifiPort = port;
-    }
-
     void setLogLevel(LogLevel l) { minLogLevel = l; }
+
     void setColorUse(bool b) { useColors = b; }
 
     uint32_t eventMask() override { return EVENT_BIT(EVENT_LOG); }
-    void update() override { wifiLogger.update(); }
 
     void onEvent(const Event &e) override
     {
@@ -62,16 +51,9 @@ public:
 
         if (useColors)
             Serial.println("\033[0m");
-
-        wifiLogger.log(buffer); // WiFi output
     }
 
 private:
     LogLevel minLogLevel = LOG_INFO;
     bool useColors = true;
-
-    WiFiLogger wifiLogger;
-
-    const char *wifiHost;
-    uint16_t wifiPort;
 };
