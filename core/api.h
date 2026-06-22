@@ -3,9 +3,11 @@
 #include "event/event.h"
 
 // ---------- Logger ----------
+#define LOG(sys, msg, src, lvl, clr) \
+    sys.emit(makeLogEvent(msg, src, lvl, clr));
 
-#define LOG(sys, src, lvl, clr, fmt, ...) \
-    sys.emit(makeLogEvent(src, lvl, clr, fmt, ...));
+#define LOGF(sys, src, lvl, clr, fmt, ...) \
+    sys.emit(makeLogEvent(src, lvl, clr, fmt, __VA_ARGS__));
 
 #define LOG_INFO(sys, msg, src) \
     sys.emit(makeLogEvent(msg, src, LOG_INFO));
@@ -24,8 +26,8 @@
 
 // ---------- TCP ----------
 
-#define TCP_SEND(sys, lvl, msg) \
-    sys.emit(makeTCPLogEvent(lvl, msg));
+#define TCP_SEND(sys, key, value) \
+    sys.emit(makeTCPSendEvent(key, value));
 
 // ---------- WiFi ----------
 

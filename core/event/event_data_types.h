@@ -14,13 +14,7 @@ struct LogData
     char message[LOG_MESSAGE_SIZE];
 };
 
-struct TCPData_log
-{
-    LogLevel level;
-    char message[LOG_MESSAGE_SIZE];
-};
-
-struct TCPData_data
+struct TCPData
 {
     char key[64];
     char value[128];
@@ -31,6 +25,5 @@ struct TCPData_data
 union EventData
 {
     LogData log;
-    TCPData_log tcpLog;
-    TCPData_data tcpData;
+    TCPData tcpData;
 };

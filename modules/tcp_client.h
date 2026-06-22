@@ -2,6 +2,7 @@
 #include <WiFi.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
+#include "../core/system.h"
 
 /**
  * Message Protocol (newline-delimited):
@@ -11,6 +12,8 @@
  */
 
 #define TCP_CLIENT_MESSAGE_MAX_SIZE 128
+
+extern System sys;
 
 class TCPClient : public IModule
 {
@@ -26,8 +29,8 @@ public:
 
         WiFi.macAddress().toCharArray(macAddress, sizeof(macAddress));
 
-        Serial.printf("TCPClient configured with HOST: %s:%d | MAC: %s\n",
-                      this->host, this->port, macAddress);
+        LOGF(sys, SRC_TCP, LOG_DEBUG, LOG_COLOR_CYAN, "TCPClient configured with HOST: %s:%d | MAC: %s\n",
+            this->host, this->port, macAddress);
 
         isBegun = true;
     }
@@ -42,13 +45,27 @@ public:
         if (client.connected() && now - lastPing > keepAlive)
         {
             disconnect();
-            Serial.println("TCP client timed out!");
+            LOG(sys, "TCP client keep-alive timeout. Disconnecting...", SRC_TCP, LOG_WARN, LOG_COLOR_YELLOW);
         }
 
         reconnect();
     }
 
-    uint32_t eventMask() override { return EVENT_BIT(EVENT_TCP_SEND); }
+    void onEvent(const Event &e) override
+    {
+        if (e.type == EVENT_TCP_SEND)
+        {
+            const auto &data = e.data.tcpData;
+            sendData(data.key, data.value);
+        }
+        else if (e.type == EVENT_LOG)
+        {
+            const auto &data = e.data.log;
+            sendLog(data.level, data.message);
+        }
+    }
+
+    uint32_t eventMask() override { return EVENT_BIT(EVENT_TCP_SEND) | EVENT_BIT(EVENT_LOG); }
 
     uint32_t updateInterval() override { return 1000; }
 
@@ -106,16 +123,16 @@ private:
         {
             lastAttempt = now;
 
-            Serial.printf("Attempting to connect to %s:%d...\n", host, port);
+            LOGF(sys, SRC_TCP, LOG_INFO, LOG_COLOR_CYAN, "Attempting to connect to %s:%d...", host, port);
 
             if (client.connect(host, port))
             {
-                Serial.printf("TCPClient connected! MAC: %s\n", macAddress);
+                LOGF(sys, SRC_TCP, LOG_INFO, LOG_COLOR_CYAN, "TCPClient connected! MAC: %s", macAddress);
                 sendIdentifyMessage();
             }
             else
             {
-                Serial.println("TCPClient connection failed!");
+                LOG(sys, "TCPClient connection failed!", SRC_TCP, LOG_ERROR, LOG_COLOR_RED);
             }
         }
     }

@@ -69,21 +69,22 @@ static Event makeLogEvent(
     return e;
 }
 
-static Event makeTCPLogEvent(
-    LogLevel level,
-    const char *message)
+static Event makeTCPSendEvent(
+    const char *key,
+    const char *value)
 {
     Event e;
     e.type = EVENT_TCP_SEND;
     e.sourceId = SRC_TCP;
     e.timestamp = millis();
 
-    auto &tcpLog = e.data.tcpLog;
+    auto &tcpData = e.data.tcpData;
 
-    tcpLog.level = level;
+    strncpy(tcpData.key, key, 64 - 1);
+    tcpData.key[64 - 1] = '\0';
 
-    strncpy(tcpLog.message, message, 128 - 1);
-    tcpLog.message[128 - 1] = '\0';
+    strncpy(tcpData.value, value, 128 - 1);
+    tcpData.value[128 - 1] = '\0';
 
     return e;
 }
