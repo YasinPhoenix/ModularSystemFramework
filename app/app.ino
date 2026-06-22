@@ -1,13 +1,10 @@
 #include <Arduino.h>
 #include "../core/system.h"
-// #include "../modules/temp_sensor.h"
-#include "../modules/wifi_module.h"
-#include "../modules/logger_module.h"
+#include "../modules/modules.h"
 #include "creds.h"
 
 System sys;
 
-// TempSensor temp;
 WifiModule wifi;
 LoggerModule logger;
 
@@ -22,9 +19,6 @@ void setup()
     sys.addModule(&wifi);
 
     sys.start(); // starts Core 1 task (update processing)
-
-    // sys.emit(makeLogEvent(SRC_APP, LOG_INFO, LOG_COLOR_WHITE, "Program started!"));
-    // LOG_INFO(sys, "Program Started!", SRC_APP);
 }
 
 void loop()
