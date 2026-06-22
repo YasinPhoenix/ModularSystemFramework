@@ -34,10 +34,8 @@ public:
 
         this->port = port;
 
-        WiFi.macAddress().toCharArray(macAddress, sizeof(macAddress));
-
-        LOGF(sys, SRC_TCP, LOG_DEBUG, LOG_COLOR_CYAN, "TCPClient configured with HOST: %s:%d | MAC: %s\n",
-             this->host, this->port, macAddress);
+        LOGF(sys, SRC_TCP, LOG_DEBUG, LOG_COLOR_CYAN, "TCPClient configured with HOST: %s:%d\n",
+             this->host, this->port);
 
         configured = true;
     }
@@ -46,6 +44,9 @@ public:
     {
         if (!configured)
             return;
+
+        if (networkAvailable() && !macAddressSet)
+            setMACAddress();
 
         uint32_t now = millis();
 
@@ -87,11 +88,15 @@ public:
         isNameSet = true;
     }
 
+    void setKeepAlive(uint16_t milliseconds) { keepAlive = milliseconds; }
+
+    bool networkAvailable() { return WiFi.isConnected(); }
+
     bool isConnected()
     {
         LockGuard lock(mutex);
-        
-        return configured && client.connected();
+
+        return networkAvailable() && configured && client.connected();
     }
 
     void disconnect()
@@ -112,7 +117,7 @@ private:
 
     // Ping timings
     uint32_t lastPing = 0;
-    const uint16_t keepAlive = 10 * 1000;
+    uint16_t keepAlive = 10 * 1000;
 
     // Buffer size limit
     const size_t maxBufferSize = 256;
@@ -126,6 +131,7 @@ private:
 
     // MAC address cache
     char macAddress[18]; // Format: XX:XX:XX:XX:XX:XX\0
+    bool macAddressSet = false;
 
     // Device name for IDENTIFY message
     char deviceName[33];
@@ -141,7 +147,7 @@ private:
     // =============== FUNCTIONS ===============
     void reconnect()
     {
-        if (WiFi.status() != WL_CONNECTED)
+        if (!networkAvailable())
             return;
 
         uint32_t now = millis();
@@ -280,5 +286,12 @@ private:
         LockGuard lock(mutex);
 
         client.println(buffer);
+    }
+
+    void setMACAddress()
+    {
+        WiFi.macAddress().toCharArray(macAddress, sizeof(macAddress));
+        LOGF(sys, SRC_TCP, LOG_DEBUG, LOG_COLOR_CYAN, "TCPClient MAC address set: %s", macAddress);
+        macAddressSet = true;
     }
 };
