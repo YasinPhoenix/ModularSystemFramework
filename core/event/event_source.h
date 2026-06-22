@@ -13,6 +13,9 @@ inline const char *toString(EventSource s)
 {
     switch (s)
     {
+    case SRC_APP:
+        return "APP";
+        
     case SRC_LOGGER:
         return "LOGGER";
 

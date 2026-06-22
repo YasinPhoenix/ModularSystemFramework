@@ -3,6 +3,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 #include "../core/system.h"
+#include "helpers/lock_guard.h"
 
 /**
  * Message Protocol (newline-delimited):
@@ -20,6 +21,12 @@ class TCPClient : public IModule
 public:
     const char *name() override { return "TCPClient"; }
 
+    bool init() override
+    {
+        mutex = xSemaphoreCreateRecursiveMutex();
+        return mutex != NULL;
+    }
+
     void setServer(const char *host, uint16_t port = 9000)
     {
         strncpy(this->host, host, sizeof(this->host) - 1);
@@ -30,22 +37,26 @@ public:
         WiFi.macAddress().toCharArray(macAddress, sizeof(macAddress));
 
         LOGF(sys, SRC_TCP, LOG_DEBUG, LOG_COLOR_CYAN, "TCPClient configured with HOST: %s:%d | MAC: %s\n",
-            this->host, this->port, macAddress);
+             this->host, this->port, macAddress);
 
-        isBegun = true;
+        configured = true;
     }
 
     void update() override
     {
-        if (!isBegun)
+        if (!configured)
             return;
 
         uint32_t now = millis();
 
-        if (client.connected() && now - lastPing > keepAlive)
+        if (isConnected())
         {
-            disconnect();
-            LOG(sys, "TCP client keep-alive timeout. Disconnecting...", SRC_TCP, LOG_WARN, LOG_COLOR_YELLOW);
+            handleIncoming();
+            if (now - lastPing > keepAlive)
+            {
+                disconnect();
+                LOG(sys, "TCP client keep-alive timeout. Disconnecting...", SRC_TCP, LOG_WARN, LOG_COLOR_YELLOW);
+            }
         }
 
         reconnect();
@@ -78,19 +89,25 @@ public:
 
     bool isConnected()
     {
-        return isBegun && client.connected();
+        LockGuard lock(mutex);
+        
+        return configured && client.connected();
     }
 
     void disconnect()
     {
+        LockGuard lock(mutex);
+
         if (client.connected())
             client.stop();
+
+        lastPing = 0;
     }
 
 private:
     // =============== VARIABLES ===============
     // Connection state
-    bool isBegun = false;
+    bool configured = false;
     uint32_t lastAttempt = 0;
 
     // Ping timings
@@ -114,18 +131,34 @@ private:
     char deviceName[33];
     bool isNameSet = false;
 
+    // RX buffer for incoming messages
+    char rxBuffer[256];
+    size_t rxPos = 0;
+
+    // Mutex to protect WiFiClient across cores/tasks
+    SemaphoreHandle_t mutex = NULL;
+
     // =============== FUNCTIONS ===============
     void reconnect()
     {
+        if (WiFi.status() != WL_CONNECTED)
+            return;
+
         uint32_t now = millis();
         // Attempt to reconnect if disconnected (every 10 seconds)
-        if (!client.connected() && now - lastAttempt > 10000)
+        if (!isConnected() && now - lastAttempt > 10000)
         {
             lastAttempt = now;
 
             LOGF(sys, SRC_TCP, LOG_INFO, LOG_COLOR_CYAN, "Attempting to connect to %s:%d...", host, port);
 
-            if (client.connect(host, port))
+            bool ok;
+            {
+                LockGuard lock(mutex);
+                ok = client.connect(host, port);
+            }
+
+            if (ok)
             {
                 LOGF(sys, SRC_TCP, LOG_INFO, LOG_COLOR_CYAN, "TCPClient connected! MAC: %s", macAddress);
                 sendIdentifyMessage();
@@ -139,12 +172,22 @@ private:
 
     void handleIncoming()
     {
-        char rxBuffer[256];
-        size_t rxPos = 0;
-
-        while (client.available())
+        while (true)
         {
-            char c = client.read();
+            bool hasByte = false;
+            char c = 0;
+
+            {
+                LockGuard lock(mutex);
+                if (client.available())
+                {
+                    c = client.read();
+                    hasByte = true;
+                }
+            }
+
+            if (!hasByte)
+                break;
 
             if (c == '\n')
             {
@@ -162,8 +205,10 @@ private:
     void processMessage(const char *msg)
     {
         if (strncmp(msg, "TYPE:PING", 9) == 0)
+        {
+            lastPing = millis();
             sendPong();
-
+        }
         else if (strncmp(msg, "TYPE:COMMAND", 12) == 0)
         {
             // Not implemented yet!
@@ -180,9 +225,9 @@ private:
                  macAddress,
                  now);
 
-        client.println(pongBuffer);
+        LockGuard lock(mutex);
 
-        lastPing = now;
+        client.println(pongBuffer);
     }
 
     bool sendLog(LogLevel level, const char *message)
@@ -197,7 +242,10 @@ private:
                  "TYPE:LOG|MAC:%s|LEVEL:%s|MSG:%s",
                  macAddress, toString(level), message);
 
+        LockGuard lock(mutex);
+
         client.println(buffer);
+
         return true;
     }
 
@@ -215,7 +263,10 @@ private:
                  "TYPE:DATA|MAC:%s|KEY:%s|VALUE:%s",
                  macAddress, key, value);
 
+        LockGuard lock(mutex);
+
         client.println(buffer);
+
         return true;
     }
 
@@ -225,6 +276,8 @@ private:
         snprintf(buffer, sizeof(buffer),
                  "TYPE:IDENTIFY|MAC:%s|NAME:%s",
                  macAddress, isNameSet ? deviceName : macAddress);
+
+        LockGuard lock(mutex);
 
         client.println(buffer);
     }
