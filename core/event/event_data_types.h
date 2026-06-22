@@ -5,7 +5,8 @@
 
 #define LOG_MESSAGE_SIZE 128
 
-struct LogData{
+struct LogData
+{
     LogLevel level;
     LogColor color;
     EventSource source;
@@ -13,14 +14,16 @@ struct LogData{
     char message[LOG_MESSAGE_SIZE];
 };
 
-struct SensorUpdateData
+struct TCPData_log
 {
-    float value;
+    LogLevel level;
+    char message[LOG_MESSAGE_SIZE];
 };
 
-struct WifiStatusData
+struct TCPData_data
 {
-    float value;
+    char key[64];
+    char value[128];
 };
 
 // Union of all possible payloads
@@ -28,6 +31,6 @@ struct WifiStatusData
 union EventData
 {
     LogData log;
-    SensorUpdateData sensor;
-    WifiStatusData wifi;
+    TCPData_log tcpLog;
+    TCPData_data tcpData;
 };

@@ -5,6 +5,7 @@
 
 System sys;
 
+TCPClient tcp;
 WifiModule wifi;
 LoggerModule logger;
 
@@ -12,11 +13,13 @@ void setup()
 {
     logger.setLogLevel(LOG_DEBUG);
     logger.setColorUse(true);
-    logger.setWiFiLogger(WIFI_LOGGER_IP, WIFI_LOGGER_PORT);
     sys.addModule(&logger);
 
     wifi.config(WIFI_MODULE_MODE_STA, WIFI_SSID, WIFI_PASS);
     sys.addModule(&wifi);
+
+    tcp.setServer(TCP_SERVER_IP, TCP_SERVER_PORT);
+    sys.addModule(&tcp);
 
     sys.start(); // starts Core 1 task (update processing)
 }

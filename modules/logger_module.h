@@ -1,8 +1,11 @@
 #pragma once
+#include "../core/system.h"
 #include "../core/imodule.h"
 #include "../core/api.h"
 #include "../core/event/event_source.h"
 #include "helpers/log_helpers.h"
+
+extern System sys;
 
 class LoggerModule : public IModule
 {
@@ -51,6 +54,8 @@ public:
 
         if (useColors)
             Serial.println("\033[0m");
+
+        TCP_SEND(sys, log.level, buffer); // Send to TCP logger
     }
 
 private:

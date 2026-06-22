@@ -22,6 +22,11 @@
 #define LOG_DEBUG(sys, msg, src) \
     sys.emit(makeLogEvent(msg, src, LOG_DEBUG, LOG_COLOR_CYAN));
 
+// ---------- TCP ----------
+
+#define TCP_SEND(sys, lvl, msg) \
+    sys.emit(makeTCPLogEvent(lvl, msg));
+
 // ---------- WiFi ----------
 
 #define EVENT_WIFI_CONNECTED(src) \

@@ -17,7 +17,7 @@ class TCPClient : public IModule
 public:
     const char *name() override { return "TCPClient"; }
 
-    void begin(const char *host, uint16_t port = 9000)
+    void setServer(const char *host, uint16_t port = 9000)
     {
         strncpy(this->host, host, sizeof(this->host) - 1);
         this->host[sizeof(this->host) - 1] = '\0';
@@ -42,7 +42,7 @@ public:
         if (client.connected() && now - lastPing > keepAlive)
         {
             disconnect();
-            Serial.println("TCP client timed out!")
+            Serial.println("TCP client timed out!");
         }
 
         reconnect();
@@ -59,7 +59,7 @@ public:
         isNameSet = true;
     }
 
-    bool isConnected() const
+    bool isConnected()
     {
         return isBegun && client.connected();
     }
@@ -144,17 +144,19 @@ private:
 
     void processMessage(const char *msg)
     {
-        if (startsWith(msg, "TYPE:PING"))
+        if (strncmp(msg, "TYPE:PING", 9) == 0)
             sendPong();
 
-        else if (startsWith(msg, "TYPE:COMMAND"))
-        // Not implemented yet!
+        else if (strncmp(msg, "TYPE:COMMAND", 12) == 0)
+        {
+            // Not implemented yet!
+        }
     }
 
     void sendPong()
     {
         char pongBuffer[64];
-        uint32_t = millis();
+        uint32_t now = millis();
 
         snprintf(pongBuffer, sizeof(pongBuffer),
                  "TYPE:PONG|MAC:%s|TS:%u\n",

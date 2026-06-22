@@ -53,19 +53,38 @@ static Event makeLogEvent(
     e.type = EVENT_LOG;
     e.sourceId = source;
     e.timestamp = millis();
-    
+
     auto &log = e.data.log;
-    
+
     log.level = level;
     log.color = color;
     log.source = source;
     log.timeStamp = e.timestamp;
-    
+
     va_list args;
     va_start(args, format);
     vsnprintf(log.message, LOG_MESSAGE_SIZE, format, args);
     va_end(args);
-    
+
+    return e;
+}
+
+static Event makeTCPLogEvent(
+    LogLevel level,
+    const char *message)
+{
+    Event e;
+    e.type = EVENT_TCP_SEND;
+    e.sourceId = SRC_TCP;
+    e.timestamp = millis();
+
+    auto &tcpLog = e.data.tcpLog;
+
+    tcpLog.level = level;
+
+    strncpy(tcpLog.message, message, 128 - 1);
+    tcpLog.message[128 - 1] = '\0';
+
     return e;
 }
 
@@ -73,22 +92,12 @@ static Event makeWiFiEvent(bool connected, EventSource source)
 {
     Event e;
     if (connected)
-    e.type = EVENT_WIFI_CONNECTED;
+        e.type = EVENT_WIFI_CONNECTED;
     else
-    e.type = EVENT_WIFI_DISCONNECTED;
-    
+        e.type = EVENT_WIFI_DISCONNECTED;
+
     e.sourceId = source;
     e.timestamp = millis();
-
-    return e;
-}
-
-static Event makeSensorEvent(float value, EventSource source, uint32_t time)
-{
-    Event e;
-    e.type = EVENT_SENSOR_UPDATE;
-    e.sourceId = source;
-    e.timestamp = time;
-    e.data.sensor.value = value;
+    
     return e;
 }

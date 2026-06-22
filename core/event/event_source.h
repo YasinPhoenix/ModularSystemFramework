@@ -4,6 +4,7 @@ enum EventSource
 {
     SRC_APP,
     SRC_LOGGER,
+    SRC_TCP,
     SRC_WIFI,
     SRC_SENSOR_TEMP
 };
@@ -14,6 +15,9 @@ inline const char *toString(EventSource s)
     {
     case SRC_LOGGER:
         return "LOGGER";
+
+    case SRC_TCP:
+        return "TCP";
 
     case SRC_WIFI:
         return "WIFI";

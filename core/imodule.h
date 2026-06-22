@@ -8,8 +8,8 @@ public:
     virtual const char *name() = 0;
     virtual uint16_t capabilities() { return 0xFFFFFFFF; }
 
-    virtual bool init() = 0;
-    virtual void update() = 0;
+    virtual bool init() { return true; };
+    virtual void update() {};
 
     // Declare interest
     virtual uint32_t eventMask() { return 0xFFFFFFFF; }
