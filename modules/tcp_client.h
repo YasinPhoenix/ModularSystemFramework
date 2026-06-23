@@ -168,6 +168,7 @@ private:
             {
                 LOGF(sys, SRC_TCP, LOG_INFO, LOG_COLOR_CYAN, "TCPClient connected! MAC: %s", macAddress);
                 sendIdentifyMessage();
+                lastPing = millis();
             }
             else
             {
