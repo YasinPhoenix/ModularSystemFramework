@@ -48,15 +48,13 @@ public:
         if (networkAvailable() && !macAddressSet)
             setMACAddress();
 
-        uint32_t now = millis();
-
         if (isConnected())
         {
             handleIncoming();
-            if (now - lastPing > keepAlive)
+            if (millis() - lastPing > keepAlive)
             {
+                LOG(sys, "TCP client keep-alive timeout. Disconnecting...", SRC_TCP, LOG_DEBUG, LOG_COLOR_CYAN);
                 disconnect();
-                LOG(sys, "TCP client keep-alive timeout. Disconnecting...", SRC_TCP, LOG_WARN, LOG_COLOR_YELLOW);
             }
         }
 
@@ -166,9 +164,9 @@ private:
 
             if (ok)
             {
-                LOGF(sys, SRC_TCP, LOG_INFO, LOG_COLOR_CYAN, "TCPClient connected! MAC: %s", macAddress);
                 sendIdentifyMessage();
                 lastPing = millis();
+                LOGF(sys, SRC_TCP, LOG_INFO, LOG_COLOR_CYAN, "TCPClient connected at %lu! MAC: %s", lastPing, macAddress);
             }
             else
             {
@@ -201,6 +199,8 @@ private:
                 rxBuffer[rxPos] = '\0';
                 processMessage(rxBuffer);
                 rxPos = 0;
+
+                LOGF(sys, SRC_TCP, LOG_DEBUG, LOG_COLOR_CYAN, "TCPClient received: %s", rxBuffer);
             }
             else if (rxPos < sizeof(rxBuffer) - 1)
             {

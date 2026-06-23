@@ -17,11 +17,11 @@ void setup()
 
     wifi.config(WIFI_MODULE_MODE_STA, WIFI_SSID, WIFI_PASS);
     sys.addModule(&wifi);
-
+    
+    tcp.setServer(TCP_SERVER_IP, TCP_SERVER_PORT);
     sys.addModule(&tcp);
 
     sys.start(); // starts Core 1 task (update processing)
-    tcp.setServer(TCP_SERVER_IP, TCP_SERVER_PORT);
 }
 
 void loop()
