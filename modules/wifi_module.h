@@ -48,23 +48,13 @@ public:
     bool init() override
     {
         WiFi.onEvent(wifiEvent);
-        return setModeAndReconnect(mode);
+        setMode(mode);
+        connect(true);
+        return true;
     }
 
     void update() override
     {
-        uint32_t now = millis();
-
-        if (mode == WIFI_MODULE_MODE_AP || mode == WIFI_MODULE_MODE_AP_STA)
-        {
-            //if (now - lastApStaCountLog > apStaLogInterval)
-            //{
-            //    lastApStaCountLog = now;
-            //}
-            if (mode == WIFI_MODULE_MODE_AP)
-                return;
-        }
-
         if (state == WIFI_DISCONNECTED)
             if (connect())
                 LOG_INFO(sys, "WiFi reconnecting!", SRC_WIFI, LOG_COLOR_BLUE);
@@ -73,9 +63,7 @@ public:
     // uint32_t eventMask() override { return EVENT_BIT(EVENT_SENSOR_UPDATE); }
     uint32_t updateInterval() override { return 10; }
 
-    void onEvent(const Event &e) override
-    {
-    }
+    void onEvent(const Event &e) override {}
 
     bool setStaCred(const char *ssid, const char *pass)
     {
@@ -220,8 +208,8 @@ private:
     uint32_t disconnectionTime = 0;
     uint32_t reconnectTimer = 10 * 1000; // 10 sec
 
-    //uint32_t lastApStaCountLog = 0;
-    //uint32_t apStaLogInterval = 10 * 1000;
+    // uint32_t lastApStaCountLog = 0;
+    // uint32_t apStaLogInterval = 10 * 1000;
 
     IPAddress ip;
 
@@ -234,6 +222,28 @@ private:
     char apSsid[WIFI_SSID_MAX_LEN + 1];
     char apPass[WIFI_PASS_MAX_LEN + 1];
     bool hasApCred = false;
+
+    void setMode(WiFiModeState mode)
+    {
+        switch (mode)
+        {
+        case WIFI_MODULE_MODE_AP_STA:
+            WiFi.mode(WIFI_AP_STA);
+            break;
+
+        case WIFI_MODULE_MODE_AP:
+            WiFi.mode(WIFI_AP);
+            break;
+
+        case WIFI_MODULE_MODE_STA:
+            WiFi.mode(WIFI_STA);
+            break;
+        
+        default:
+            LOG_WARN(sys, "Invalid WiFi mode!", SRC_WIFI);
+            break;
+        }
+    }
 
     bool connect(bool ignoreTimer = false)
     {
@@ -275,6 +285,8 @@ private:
 
     bool startSta()
     {
+        Serial.println("STA starting...");
+
         if (!hasStaCred)
             return false;
 
