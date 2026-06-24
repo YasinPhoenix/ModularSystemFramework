@@ -25,6 +25,8 @@ struct CommandResult
     char message[128];
 };
 
+typedef CommandResult (*CommandHandler)(void *context, const Command &);
+
 struct CommandEntry
 {
     const char *name;
@@ -32,5 +34,3 @@ struct CommandEntry
     CommandHandler handler;
     void *context;
 };
-
-typedef CommandResult (*CommandHandler)(void *context, const Command &);

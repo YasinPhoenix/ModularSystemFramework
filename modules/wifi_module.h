@@ -45,6 +45,8 @@ public:
     const char *name() override { return "WiFi"; }
     uint16_t capabilities() override { return CAPABILITY_BIT(CAPABILITY_WIFI); }
 
+    MODULE_COMMANDS();
+
     bool init() override
     {
         WiFi.onEvent(wifiEvent);
@@ -60,7 +62,6 @@ public:
                 LOG_INFO(sys, "WiFi reconnecting!", SRC_WIFI, LOG_COLOR_BLUE);
     }
 
-    // uint32_t eventMask() override { return EVENT_BIT(EVENT_SENSOR_UPDATE); }
     uint32_t updateInterval() override { return 10; }
 
     void onEvent(const Event &e) override {}
@@ -223,6 +224,48 @@ private:
     char apPass[WIFI_PASS_MAX_LEN + 1];
     bool hasApCred = false;
 
+    static constexpr ModuleCommand moduleCommands[] = {
+        {"wifi.setStaCred", "Set the WiFi STA credentials (SSID and password)", [](void *context, const Command &cmd) -> CommandResult
+         {
+             WifiModule *wifi = static_cast<WifiModule *>(context);
+
+             if (cmd.argumentCount < 2)
+                 return {false, "Missing arguments: SSID and password"};
+
+             if (!wifi->setStaCred(cmd.arg(0), cmd.arg(1)))
+                 return {false, "Invalid credentials. Check length requirements."};
+
+             return {true, "STA credentials set successfully"};
+         }},
+        {"wifi.setApCred", "Set the WiFi AP credentials (SSID and password)", [](void *context, const Command &cmd) -> CommandResult
+         {
+             WifiModule *wifi = static_cast<WifiModule *>(context);
+
+             if (cmd.argumentCount < 2)
+                 return {false, "Missing arguments: SSID and password"};
+
+             if (!wifi->setApCred(cmd.arg(0), cmd.arg(1)))
+                 return {false, "Invalid credentials. Check length requirements."};
+
+             return {true, "AP credentials set successfully"};
+         }},
+        {"wifi.setMode", "Set the WiFi mode (0=STA, 1=AP, 2=AP+STA)", [](void *context, const Command &cmd) -> CommandResult
+         {
+             WifiModule *wifi = static_cast<WifiModule *>(context);
+
+             if (cmd.argumentCount < 1)
+                 return {false, "Missing argument: mode"};
+
+             int mode = atoi(cmd.arg(0));
+             if (mode < 0 || mode > 2)
+                 return {false, "Invalid mode. Must be 0 (STA), 1 (AP), or 2 (AP+STA)"};
+
+             if (!wifi->setModeAndReconnect(static_cast<WiFiModeState>(mode)))
+                 return {false, "Failed to set mode and reconnect"};
+
+             return {true, "WiFi mode set successfully"};
+         }}};
+
     void setMode(WiFiModeState mode)
     {
         switch (mode)
@@ -238,7 +281,7 @@ private:
         case WIFI_MODULE_MODE_STA:
             WiFi.mode(WIFI_STA);
             break;
-        
+
         default:
             LOG_WARN(sys, "Invalid WiFi mode!", SRC_WIFI);
             break;

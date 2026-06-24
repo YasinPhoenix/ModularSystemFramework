@@ -1,12 +1,23 @@
 #pragma once
 #include "event/event.h"
+#include "command/command.h"
 #include "module_capabilities.h"
+
+struct ModuleCommand
+{
+    const char *name;
+    const char *help;
+    CommandHandler handler;
+};
 
 class IModule
 {
 public:
     virtual const char *name() = 0;
     virtual uint16_t capabilities() { return 0xFFFFFFFF; }
+
+    virtual const ModuleCommand *getCommands() { return nullptr; }
+    virtual uint8_t getCommandCount() { return 0; }
 
     virtual bool init() { return true; };
     virtual void update() {};
@@ -20,3 +31,15 @@ public:
 
     virtual void onEvent(const Event &e) {}
 };
+
+// A little helper macro to define commands in a module
+#define MODULE_COMMANDS(...)                                  \
+    const ModuleCommand *getCommands() override                \
+    {                                                         \
+        return moduleCommands;                                \
+    }                                                         \
+                                                              \
+    uint8_t getCommandCount() override                        \
+    {                                                         \
+        return sizeof(moduleCommands) / sizeof(ModuleCommand); \
+    }

@@ -59,4 +59,4 @@ public:
 
         return CMD_PARSE_OK;
     }
-}
+};

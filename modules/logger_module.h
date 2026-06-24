@@ -9,6 +9,8 @@ class LoggerModule : public IModule
 public:
     const char *name() override { return "Logger"; }
 
+    MODULE_COMMANDS();
+
     bool init() override
     {
         Serial.begin(115200);
@@ -56,4 +58,34 @@ public:
 private:
     LogLevel minLogLevel = LOG_INFO;
     bool useColors = true;
+
+    static constexpr ModuleCommand moduleCommands[] = {
+        {"logger.setLogLevel", "Set the minimum log level (0=INFO, 1=WARN, 2=ERROR, 3=DEBUG)", [](void *context, const Command &cmd) -> CommandResult
+         {
+             LoggerModule *logger = static_cast<LoggerModule *>(context);
+
+             if (cmd.argumentCount < 1)
+                 return {false, "Missing argument: log level"};
+
+             int level = atoi(cmd.arg(0));
+             if (level < 0 || level > 3)
+                 return {false, "Invalid log level. Must be between 0 and 3"};
+
+             logger->setLogLevel(static_cast<LogLevel>(level));
+             return {true, "Log level set successfully"};
+         }},
+        {"logger.setColorUse", "Enable or disable color output (0=disable, 1=enable)", [](void *context, const Command &cmd) -> CommandResult
+         {
+             LoggerModule *logger = static_cast<LoggerModule *>(context);
+
+             if (cmd.argumentCount < 1)
+                 return {false, "Missing argument: color use (0 or 1)"};
+
+             int useColor = atoi(cmd.arg(0));
+             if (useColor != 0 && useColor != 1)
+                 return {false, "Invalid argument. Must be 0 or 1"};
+
+             logger->setColorUse(useColor == 1);
+             return {true, "Color output setting updated successfully"};
+         }}};
 };

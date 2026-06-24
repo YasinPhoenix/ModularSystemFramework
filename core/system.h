@@ -1,6 +1,7 @@
 #pragma once
 #include "module_registry.h"
 #include "command/command_registry.h"
+#include "command/command_parser.h"
 #include "event/event_queue.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -43,7 +44,26 @@ private:
     }
 
 public:
-    bool addModule(IModule *m) { return registry.add(m); }
+    bool addModule(IModule *m)
+    {
+        if (!registry.add(m))
+            return false;
+
+        // Register module commands
+        const ModuleCommand *cmds = m->getCommands();
+        uint8_t cmdCount = m->getCommandCount();
+
+        for (uint8_t i = 0; i < cmdCount; i++)
+        {
+            const ModuleCommand &entry = cmds[i];
+            if (!commands.registerCommand(entry.name, entry.help, entry.handler, m))
+            {
+                return false; // Failed to register command
+            }
+        }
+
+        return true;
+    }
 
     bool addCommand(const char *name, const char *help, CommandHandler handler, void *context = nullptr)
     {
