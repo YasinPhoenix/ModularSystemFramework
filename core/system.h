@@ -1,5 +1,6 @@
 #pragma once
 #include "module_registry.h"
+#include "command/command_registry.h"
 #include "event/event_queue.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -8,6 +9,7 @@ class System
 {
 private:
     ModuleRegistry registry;
+    CommandRegistry commands;
     EventQueue highQueue;
     EventQueue normalQueue;
     EventQueue lowQueue;
@@ -34,7 +36,6 @@ private:
                     entry.lastUpdate = now;
                     m->update();
                 }
-                delay(10);
             }
 
             vTaskDelay(1); // yield
@@ -43,6 +44,38 @@ private:
 
 public:
     bool addModule(IModule *m) { return registry.add(m); }
+
+    bool addCommand(const char *name, const char *help, CommandHandler handler, void *context = nullptr)
+    {
+        return commands.registerCommand(name, help, handler, context);
+    }
+
+    CommandResult executeCommand(const char *cmd)
+    {
+        Command parsedCmd;
+        CommandParseResult result = CommandParser::parse(cmd, parsedCmd);
+
+        switch (result)
+        {
+        case CMD_PARSE_OK:
+            return commands.execute(parsedCmd);
+
+        case CMD_PARSE_EMPTY:
+            return {false, "Empty command"};
+
+        case CMD_PARSE_TOO_MANY_ARGS:
+            return {false, "Too many arguments"};
+
+        case CMD_PARSE_NAME_TOO_LONG:
+            return {false, "Command name too long"};
+
+        case CMD_PARSE_ARG_TOO_LONG:
+            return {false, "Command argument too long"};
+
+        default:
+            return {false, "Command parse error"};
+        }
+    }
 
     EventQueue &highEvents() { return highQueue; }
     EventQueue &normalEvents() { return normalQueue; }

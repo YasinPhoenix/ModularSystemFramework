@@ -15,7 +15,7 @@ enum CommandParseResult
 class CommandParser
 {
 public:
-    CommandParseResult parse(const char *str, Command &cmd)
+    static CommandParseResult parse(const char *str, Command &cmd)
     {
         memset(&cmd, 0, sizeof(cmd));
 
