@@ -16,11 +16,11 @@ private:
     int count = 0;
 
 public:
-    bool add(IModule *m)
+    bool add(IModule *m, System *sys)
     {
         if (count >= MAX_MODULES)
             return false;
-        if (!m->init())
+        if (!m->init(sys))
             return false;
 
         modules[count].module = m;

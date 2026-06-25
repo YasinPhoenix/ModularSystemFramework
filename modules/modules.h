@@ -1,6 +1,6 @@
 // Sinngle header to include all modules
-#pragma once 
+#pragma once
 
-#include "logger_module.h"
+#include "serial_module.h"
 #include "tcp_client.h"
-#include "wifi_module.h"
+#include "wifi_client.h"

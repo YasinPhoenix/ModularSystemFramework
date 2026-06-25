@@ -14,8 +14,6 @@
 
 #define TCP_CLIENT_MESSAGE_MAX_SIZE 128
 
-extern System sys;
-
 class TCPClient : public IModule
 {
 public:
@@ -23,8 +21,9 @@ public:
 
     MODULE_COMMANDS();
 
-    bool init() override
+    bool init(System *sys) override
     {
+        this->sys = sys;
         mutex = xSemaphoreCreateRecursiveMutex();
         return mutex != NULL;
     }
@@ -111,6 +110,8 @@ public:
 
 private:
     // =============== VARIABLES ===============
+    System *sys;
+
     // Connection state
     bool configured = false;
     uint32_t lastAttempt = 0;
@@ -146,7 +147,8 @@ private:
 
     // =============== COMMANDS ===============
     static constexpr ModuleCommand moduleCommands[] = {
-        {"tcp.setServer", "Set the TCP server address and port", [](void *context, const Command &cmd) -> CommandResult {
+        {"tcp.setServer", "Set the TCP server address and port", [](void *context, const Command &cmd) -> CommandResult
+         {
              TCPClient *tcp = static_cast<TCPClient *>(context);
 
              if (cmd.argumentCount < 1)
@@ -161,7 +163,8 @@ private:
              tcp->setServer(host, port);
              return {true, "TCP server configured"};
          }},
-        {"tcp.setDeviceName", "Set the device name for IDENTIFY message", [](void *context, const Command &cmd) -> CommandResult {
+        {"tcp.setDeviceName", "Set the device name for IDENTIFY message", [](void *context, const Command &cmd) -> CommandResult
+         {
              TCPClient *tcp = static_cast<TCPClient *>(context);
 
              if (cmd.argumentCount < 1)
@@ -170,7 +173,8 @@ private:
              tcp->setDeviceName(cmd.arg(0));
              return {true, "Device name set"};
          }},
-        {"tcp.setKeepAlive", "Set the keep-alive timeout in milliseconds", [](void *context, const Command &cmd) -> CommandResult {
+        {"tcp.setKeepAlive", "Set the keep-alive timeout in milliseconds", [](void *context, const Command &cmd) -> CommandResult
+         {
              TCPClient *tcp = static_cast<TCPClient *>(context);
 
              if (cmd.argumentCount < 1)

@@ -3,6 +3,8 @@
 #include "command/command.h"
 #include "module_capabilities.h"
 
+class System;
+
 struct ModuleCommand
 {
     const char *name;
@@ -19,7 +21,7 @@ public:
     virtual const ModuleCommand *getCommands() { return nullptr; }
     virtual uint8_t getCommandCount() { return 0; }
 
-    virtual bool init() { return true; };
+    virtual bool init(System *sys) = 0;
     virtual void update() {};
 
     // Declare interest
@@ -30,16 +32,19 @@ public:
     virtual uint32_t updateInterval() { return 1000; }
 
     virtual void onEvent(const Event &e) {}
+
+private:
+    System *sys;
 };
 
 // A little helper macro to define commands in a module
-#define MODULE_COMMANDS(...)                                  \
+#define MODULE_COMMANDS(...)                                   \
     const ModuleCommand *getCommands() override                \
-    {                                                         \
-        return moduleCommands;                                \
-    }                                                         \
-                                                              \
-    uint8_t getCommandCount() override                        \
-    {                                                         \
+    {                                                          \
+        return moduleCommands;                                 \
+    }                                                          \
+                                                               \
+    uint8_t getCommandCount() override                         \
+    {                                                          \
         return sizeof(moduleCommands) / sizeof(ModuleCommand); \
     }

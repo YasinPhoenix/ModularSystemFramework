@@ -22,7 +22,7 @@ struct Command
 struct CommandResult
 {
     bool success;
-    char message[128];
+    const char *message;
 };
 
 typedef CommandResult (*CommandHandler)(void *context, const Command &);

@@ -46,7 +46,7 @@ private:
 public:
     bool addModule(IModule *m)
     {
-        if (!registry.add(m))
+        if (!registry.add(m, this))
             return false;
 
         // Register module commands
