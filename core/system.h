@@ -97,36 +97,78 @@ public:
 
         const CommandEntry *entries = sys->commands.getEntries();
         uint8_t entryCount = sys->commands.getCount();
-        char buffer[160];
+        char buffer[256];
         bool found = false;
+
+        auto emitHeader = [&](const char *moduleName)
+        {
+            snprintf(buffer, sizeof(buffer), "  %s:", moduleName);
+            emitLogLine(sys, buffer);
+            emitLogLine(sys, "    Command             Help");
+        };
+
+        auto emitCommandRow = [&](const char *command, const char *help)
+        {
+            snprintf(buffer, sizeof(buffer), "    %-18s  %s",
+                     command,
+                     help ? help : "");
+            emitLogLine(sys, buffer);
+        };
 
         if (!moduleFilter)
         {
             emitLogLine(sys, "Available commands:");
+
+            const char *modules[MAX_COMMANDS];
+            uint8_t moduleCount = 0;
+
             for (uint8_t i = 0; i < entryCount; i++)
             {
-                snprintf(buffer, sizeof(buffer), "%-*s --%-*s : %s",
-                         entries[i].moduleName,
-                         entries[i].name,
-                         entries[i].help ? entries[i].help : "");
-                emitLogLine(sys, buffer);
+                const char *moduleName = entries[i].moduleName;
+                bool seen = false;
+
+                for (uint8_t j = 0; j < moduleCount; j++)
+                {
+                    if (strcmp(modules[j], moduleName) == 0)
+                    {
+                        seen = true;
+                        break;
+                    }
+                }
+
+                if (!seen)
+                    modules[moduleCount++] = moduleName;
             }
+
+            for (uint8_t m = 0; m < moduleCount; m++)
+            {
+                emitHeader(modules[m]);
+                for (uint8_t i = 0; i < entryCount; i++)
+                {
+                    if (strcmp(entries[i].moduleName, modules[m]) == 0)
+                    {
+                        char commandName[COMMAND_NAME_MAX_LENGTH + 3];
+                        snprintf(commandName, sizeof(commandName), "--%s", entries[i].name);
+                        emitCommandRow(commandName, entries[i].help);
+                    }
+                }
+            }
+
             return {true, "Help output emitted"};
         }
 
         if (!commandFilter)
         {
-            snprintf(buffer, sizeof(buffer), "Commands for module: %s", moduleFilter);
-            emitLogLine(sys, buffer);
+            emitLogLine(sys, "Commands for module:");
+            emitHeader(moduleFilter);
 
             for (uint8_t i = 0; i < entryCount; i++)
             {
                 if (strcmp(entries[i].moduleName, moduleFilter) == 0)
                 {
-                    snprintf(buffer, sizeof(buffer), "  --%s : %s",
-                             entries[i].name,
-                             entries[i].help ? entries[i].help : "");
-                    emitLogLine(sys, buffer);
+                    char commandName[COMMAND_NAME_MAX_LENGTH + 3];
+                    snprintf(commandName, sizeof(commandName), "--%s", entries[i].name);
+                    emitCommandRow(commandName, entries[i].help);
                     found = true;
                 }
             }
@@ -142,11 +184,11 @@ public:
             if (strcmp(entries[i].moduleName, moduleFilter) == 0 &&
                 strcmp(entries[i].name, commandFilter) == 0)
             {
-                snprintf(buffer, sizeof(buffer), "%s --%s : %s",
-                         entries[i].moduleName,
-                         entries[i].name,
-                         entries[i].help ? entries[i].help : "");
-                emitLogLine(sys, buffer);
+                emitLogLine(sys, "Command detail:");
+                emitHeader(moduleFilter);
+                char commandName[COMMAND_NAME_MAX_LENGTH + 3];
+                snprintf(commandName, sizeof(commandName), "--%s", entries[i].name);
+                emitCommandRow(commandName, entries[i].help);
                 return {true, "Help output emitted"};
             }
         }
