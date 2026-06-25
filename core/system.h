@@ -8,6 +8,12 @@
 
 class System
 {
+public:
+    System()
+    {
+        registerBuiltInCommands();
+    }
+
 private:
     ModuleRegistry registry;
     CommandRegistry commands;
@@ -67,6 +73,94 @@ public:
         }
 
         return true;
+    }
+
+    static void emitLogLine(System *sys, const char *line)
+    {
+        sys->emit(makeLogEvent(line, SRC_SYSTEM, LOG_INFO, LOG_COLOR_MAGENTA));
+    }
+
+    static CommandResult helpHandler(void *context, const Command &cmd)
+    {
+        System *sys = static_cast<System *>(context);
+        const char *moduleFilter = nullptr;
+        const char *commandFilter = nullptr;
+
+        if (cmd.argumentCount > 2)
+            return {false, "Too many arguments. Usage: System --help [module] [command]"};
+
+        if (cmd.argumentCount >= 1)
+            moduleFilter = cmd.arg(0);
+
+        if (cmd.argumentCount == 2)
+            commandFilter = cmd.arg(1);
+
+        const CommandEntry *entries = sys->commands.getEntries();
+        uint8_t entryCount = sys->commands.getCount();
+        char buffer[160];
+        bool found = false;
+
+        if (!moduleFilter)
+        {
+            emitLogLine(sys, "Available commands:");
+            for (uint8_t i = 0; i < entryCount; i++)
+            {
+                snprintf(buffer, sizeof(buffer), "%-*s --%-*s : %s",
+                         entries[i].moduleName,
+                         entries[i].name,
+                         entries[i].help ? entries[i].help : "");
+                emitLogLine(sys, buffer);
+            }
+            return {true, "Help output emitted"};
+        }
+
+        if (!commandFilter)
+        {
+            snprintf(buffer, sizeof(buffer), "Commands for module: %s", moduleFilter);
+            emitLogLine(sys, buffer);
+
+            for (uint8_t i = 0; i < entryCount; i++)
+            {
+                if (strcmp(entries[i].moduleName, moduleFilter) == 0)
+                {
+                    snprintf(buffer, sizeof(buffer), "  --%s : %s",
+                             entries[i].name,
+                             entries[i].help ? entries[i].help : "");
+                    emitLogLine(sys, buffer);
+                    found = true;
+                }
+            }
+
+            if (!found)
+                return {false, "No commands found for module"};
+
+            return {true, "Help output emitted"};
+        }
+
+        for (uint8_t i = 0; i < entryCount; i++)
+        {
+            if (strcmp(entries[i].moduleName, moduleFilter) == 0 &&
+                strcmp(entries[i].name, commandFilter) == 0)
+            {
+                snprintf(buffer, sizeof(buffer), "%s --%s : %s",
+                         entries[i].moduleName,
+                         entries[i].name,
+                         entries[i].help ? entries[i].help : "");
+                emitLogLine(sys, buffer);
+                return {true, "Help output emitted"};
+            }
+        }
+
+        return {false, "Command not found"};
+    }
+
+    void registerBuiltInCommands()
+    {
+        commands.registerCommand("System",
+                                 "help",
+                                 "Show available commands. Usage: System --help [module] [command]",
+                                 helpHandler,
+                                 this);
     }
 
     CommandResult executeCommand(const char *cmd)

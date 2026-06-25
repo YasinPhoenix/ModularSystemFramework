@@ -27,6 +27,8 @@ public:
         char buffer[128];
         strncpy(buffer, str, sizeof(buffer) - 1);
         buffer[sizeof(buffer) - 1] = '\0';
+        
+        trimLine(buffer);
 
         // module
         char *token = strtok(buffer, " ");
@@ -80,5 +82,17 @@ public:
         }
 
         return CMD_PARSE_OK;
+    }
+
+    static void trimLine(char *str)
+    {
+        size_t len = strlen(str);
+
+        while (len > 0 &&
+               (str[len - 1] == '\r' ||
+                str[len - 1] == '\n'))
+        {
+            str[--len] = '\0';
+        }
     }
 };

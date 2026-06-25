@@ -40,6 +40,16 @@ public:
             cmd);
     }
 
+    uint8_t getCount() const
+    {
+        return count;
+    }
+
+    const CommandEntry *getEntries() const
+    {
+        return commands;
+    }
+
 private:
     CommandEntry commands[MAX_COMMANDS];
     uint8_t count = 0;
