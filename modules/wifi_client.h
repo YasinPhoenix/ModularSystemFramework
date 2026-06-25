@@ -386,13 +386,13 @@ private:
     }
 
     static constexpr ModuleCommand moduleCommands[] = {
-        {"wifi.setSta", "Set the WiFi STA credentials (SSID and password)", setSta},
-        {"wifi.setAp", "Set the WiFi AP credentials (SSID and password)", setAp},
-        {"wifi.setMode", "Set the WiFi mode (0=STA, 1=AP, 2=AP+STA)", setMode},
-        {"wifi.setAutoReconnect", "Set the WiFi auto reconnect (0=OFF, 1=ON)", setAutoReconnect},
-        {"wifi.commence", "Commence the WiFi network", commence},
-        {"wifi.stop", "Stop the WiFi module", stop},
-        {"wifi.clientCount", "Get AP client count", getClientCount},
+        {"setSta", "Set the WiFi STA credentials (SSID and password)", setSta},
+        {"setAp", "Set the WiFi AP credentials (SSID and password)", setAp},
+        {"setMode", "Set the WiFi mode (0=STA, 1=AP, 2=AP+STA)", setMode},
+        {"setAutoReconnect", "Set the WiFi auto reconnect (0=OFF, 1=ON)", setAutoReconnect},
+        {"commence", "Commence the WiFi network", commence},
+        {"stop", "Stop the WiFi module", stop},
+        {"clientCount", "Get AP client count", getClientCount},
     };
 
     // =============== FUNCTIONS ===============

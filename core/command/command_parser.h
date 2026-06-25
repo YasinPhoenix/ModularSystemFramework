@@ -9,7 +9,9 @@ enum CommandParseResult
     CMD_PARSE_EMPTY,
     CMD_PARSE_TOO_MANY_ARGS,
     CMD_PARSE_NAME_TOO_LONG,
-    CMD_PARSE_ARG_TOO_LONG
+    CMD_PARSE_ARG_TOO_LONG,
+    CMD_PARSE_INVALID_FORMAT,
+    CMD_PARSE_MODULE_NAME_TOO_LONG
 };
 
 class CommandParser
@@ -26,10 +28,29 @@ public:
         strncpy(buffer, str, sizeof(buffer) - 1);
         buffer[sizeof(buffer) - 1] = '\0';
 
+        // module
         char *token = strtok(buffer, " ");
-
         if (!token)
             return CMD_PARSE_EMPTY;
+
+        if (strlen(token) >= COMMAND_MODULE_NAME_MAX_LENGTH)
+            return CMD_PARSE_MODULE_NAME_TOO_LONG;
+
+        strncpy(cmd.moduleName, token, sizeof(cmd.moduleName) - 1);
+        cmd.moduleName[sizeof(cmd.moduleName) - 1] = '\0';
+
+        // command
+        token = strtok(nullptr, " ");
+        if (!token)
+            return CMD_PARSE_EMPTY;
+
+        if (strncmp(token, "--", 2) != 0)
+            return CMD_PARSE_INVALID_FORMAT;
+
+        token += 2;
+
+        if (*token == '\0')
+            return CMD_PARSE_INVALID_FORMAT;
 
         if (strlen(token) >= COMMAND_NAME_MAX_LENGTH)
             return CMD_PARSE_NAME_TOO_LONG;
@@ -37,6 +58,7 @@ public:
         strncpy(cmd.name, token, COMMAND_NAME_MAX_LENGTH - 1);
         cmd.name[COMMAND_NAME_MAX_LENGTH - 1] = '\0';
 
+        // arguments
         while (true)
         {
             token = strtok(nullptr, " ");

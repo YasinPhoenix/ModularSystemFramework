@@ -56,18 +56,17 @@ public:
         for (uint8_t i = 0; i < cmdCount; i++)
         {
             const ModuleCommand &entry = cmds[i];
-            if (!commands.registerCommand(entry.name, entry.help, entry.handler, m))
+            if (!commands.registerCommand(m->name(),
+                                          entry.name,
+                                          entry.help,
+                                          entry.handler,
+                                          m))
             {
                 return false; // Failed to register command
             }
         }
 
         return true;
-    }
-
-    bool addCommand(const char *name, const char *help, CommandHandler handler, void *context = nullptr)
-    {
-        return commands.registerCommand(name, help, handler, context);
     }
 
     CommandResult executeCommand(const char *cmd)
@@ -91,6 +90,12 @@ public:
 
         case CMD_PARSE_ARG_TOO_LONG:
             return {false, "Command argument too long"};
+
+        case CMD_PARSE_INVALID_FORMAT:
+            return {false, "Invalid command format"};
+
+        case CMD_PARSE_MODULE_NAME_TOO_LONG:
+            return {false, "Module name too long"};
 
         default:
             return {false, "Command parse error"};

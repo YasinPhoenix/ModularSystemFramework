@@ -86,7 +86,7 @@ private:
     bool useColors = true;
 
     static constexpr ModuleCommand moduleCommands[] = {
-        {"serial.setLogLevel", "Set the minimum log level (0=INFO, 1=WARN, 2=ERROR, 3=DEBUG)", [](void *context, const Command &cmd) -> CommandResult
+        {"setLogLevel", "Set the minimum log level (0=INFO, 1=WARN, 2=ERROR, 3=DEBUG)", [](void *context, const Command &cmd) -> CommandResult
          {
              SerialModule *serial = static_cast<SerialModule *>(context);
 
@@ -100,7 +100,7 @@ private:
              serial->setLogLevel(static_cast<LogLevel>(level));
              return {true, "Log level set successfully"};
          }},
-        {"serial.setColorUse", "Enable or disable color output (0=disable, 1=enable)", [](void *context, const Command &cmd) -> CommandResult
+        {"setColorUse", "Enable or disable color output (0=disable, 1=enable)", [](void *context, const Command &cmd) -> CommandResult
          {
              SerialModule *serial = static_cast<SerialModule *>(context);
 

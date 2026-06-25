@@ -147,7 +147,7 @@ private:
 
     // =============== COMMANDS ===============
     static constexpr ModuleCommand moduleCommands[] = {
-        {"tcp.setServer", "Set the TCP server address and port", [](void *context, const Command &cmd) -> CommandResult
+        {"setServer", "Set the TCP server address and port", [](void *context, const Command &cmd) -> CommandResult
          {
              TCPClient *tcp = static_cast<TCPClient *>(context);
 
@@ -163,7 +163,7 @@ private:
              tcp->setServer(host, port);
              return {true, "TCP server configured"};
          }},
-        {"tcp.setDeviceName", "Set the device name for IDENTIFY message", [](void *context, const Command &cmd) -> CommandResult
+        {"setDeviceName", "Set the device name for IDENTIFY message", [](void *context, const Command &cmd) -> CommandResult
          {
              TCPClient *tcp = static_cast<TCPClient *>(context);
 
@@ -173,7 +173,7 @@ private:
              tcp->setDeviceName(cmd.arg(0));
              return {true, "Device name set"};
          }},
-        {"tcp.setKeepAlive", "Set the keep-alive timeout in milliseconds", [](void *context, const Command &cmd) -> CommandResult
+        {"setKeepAlive", "Set the keep-alive timeout in milliseconds", [](void *context, const Command &cmd) -> CommandResult
          {
              TCPClient *tcp = static_cast<TCPClient *>(context);
 
