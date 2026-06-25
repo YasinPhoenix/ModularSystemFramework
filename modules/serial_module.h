@@ -80,38 +80,44 @@ public:
     }
 
 private:
+    // =============== VARIABLES ===============
     System *sys;
 
     LogLevel minLogLevel = LOG_INFO;
     bool useColors = true;
 
+    // =============== COMMANDS ===============
+    static CommandResult setLogLevel(void *ctx, const Command &cmd)
+    {
+        SerialModule *serial = static_cast<SerialModule *>(ctx);
+
+        if (cmd.argumentCount < 1)
+            return {false, "Missing argument: log level"};
+
+        int level = atoi(cmd.arg(0));
+        if (level < 0 || level > 3)
+            return {false, "Invalid log level. Must be between 0 and 3"};
+
+        serial->setLogLevel(static_cast<LogLevel>(level));
+        return {true, "Log level set successfully"};
+    }
+
+    static CommandResult setColorUse(void *ctx, const Command &cmd)
+    {
+        SerialModule *serial = static_cast<SerialModule *>(ctx);
+
+        if (cmd.argumentCount < 1)
+            return {false, "Missing argument: color use (0 or 1)"};
+
+        int useColor = atoi(cmd.arg(0));
+        if (useColor != 0 && useColor != 1)
+            return {false, "Invalid argument. Must be 0 or 1"};
+
+        serial->setColorUse(useColor == 1);
+        return {true, "Color output setting updated successfully"};
+    }
+
     static constexpr ModuleCommand moduleCommands[] = {
-        {"setLogLevel", "Set the minimum log level (0=INFO, 1=WARN, 2=ERROR, 3=DEBUG)", [](void *context, const Command &cmd) -> CommandResult
-         {
-             SerialModule *serial = static_cast<SerialModule *>(context);
-
-             if (cmd.argumentCount < 1)
-                 return {false, "Missing argument: log level"};
-
-             int level = atoi(cmd.arg(0));
-             if (level < 0 || level > 3)
-                 return {false, "Invalid log level. Must be between 0 and 3"};
-
-             serial->setLogLevel(static_cast<LogLevel>(level));
-             return {true, "Log level set successfully"};
-         }},
-        {"setColorUse", "Enable or disable color output (0=disable, 1=enable)", [](void *context, const Command &cmd) -> CommandResult
-         {
-             SerialModule *serial = static_cast<SerialModule *>(context);
-
-             if (cmd.argumentCount < 1)
-                 return {false, "Missing argument: color use (0 or 1)"};
-
-             int useColor = atoi(cmd.arg(0));
-             if (useColor != 0 && useColor != 1)
-                 return {false, "Invalid argument. Must be 0 or 1"};
-
-             serial->setColorUse(useColor == 1);
-             return {true, "Color output setting updated successfully"};
-         }}};
+        {"setLogLevel", "Set the minimum log level <0=INFO|1=WARN|2=ERROR|3=DEBUG>", setLogLevel},
+        {"setColorUse", "Enable or disable color output <enable=0>", setColorUse}};
 };

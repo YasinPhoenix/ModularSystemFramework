@@ -146,45 +146,52 @@ private:
     SemaphoreHandle_t mutex = NULL;
 
     // =============== COMMANDS ===============
+    static CommandResult setServer(void *ctx, const Command &cmd)
+    {
+        TCPClient *tcp = static_cast<TCPClient *>(ctx);
+
+        if (cmd.argumentCount < 1)
+            return {false, "Missing argument: server address"};
+
+        const char *host = cmd.arg(0);
+        uint16_t port = 9000; // Default port
+
+        if (cmd.argumentCount >= 2)
+            port = atoi(cmd.arg(1));
+
+        tcp->setServer(host, port);
+        return {true, "TCP server configured"};
+    }
+
+    static CommandResult setDeviceName(void *ctx, const Command &cmd)
+    {
+        TCPClient *tcp = static_cast<TCPClient *>(ctx);
+
+        if (cmd.argumentCount < 1)
+            return {false, "Missing argument: device name"};
+
+        tcp->setDeviceName(cmd.arg(0));
+        return {true, "Device name set"};
+    }
+
+    static CommandResult setKeepAlive(void *ctx, const Command &cmd)
+    {
+        TCPClient *tcp = static_cast<TCPClient *>(ctx);
+
+        if (cmd.argumentCount < 1)
+            return {false, "Missing argument: keep-alive timeout"};
+
+        uint16_t timeout = atoi(cmd.arg(0));
+        tcp->setKeepAlive(timeout);
+        return {true, "Keep-alive timeout set"};
+    }
+
     static constexpr ModuleCommand moduleCommands[] = {
-        {"setServer", "Set the TCP server address and port", [](void *context, const Command &cmd) -> CommandResult
-         {
-             TCPClient *tcp = static_cast<TCPClient *>(context);
-
-             if (cmd.argumentCount < 1)
-                 return {false, "Missing argument: server address"};
-
-             const char *host = cmd.arg(0);
-             uint16_t port = 9000; // Default port
-
-             if (cmd.argumentCount >= 2)
-                 port = atoi(cmd.arg(1));
-
-             tcp->setServer(host, port);
-             return {true, "TCP server configured"};
-         }},
-        {"setDeviceName", "Set the device name for IDENTIFY message", [](void *context, const Command &cmd) -> CommandResult
-         {
-             TCPClient *tcp = static_cast<TCPClient *>(context);
-
-             if (cmd.argumentCount < 1)
-                 return {false, "Missing argument: device name"};
-
-             tcp->setDeviceName(cmd.arg(0));
-             return {true, "Device name set"};
-         }},
-        {"setKeepAlive", "Set the keep-alive timeout in milliseconds", [](void *context, const Command &cmd) -> CommandResult
-         {
-             TCPClient *tcp = static_cast<TCPClient *>(context);
-
-             if (cmd.argumentCount < 1)
-                 return {false, "Missing argument: keep-alive timeout"};
-
-             uint16_t timeout = atoi(cmd.arg(0));
-             tcp->setKeepAlive(timeout);
-             return {true, "Keep-alive timeout set"};
-         }}};
-    // =============== FUNCTIONS ===============
+        {"setServer", "Set the TCP server address and port <IP Address> [port=9000]", setServer},
+        {"setDeviceName", "Set the device name for IDENTIFY message <name>", setDeviceName},
+        {"setKeepAlive", "Set the keep-alive timeout in milliseconds <keep-alive=10000>", setKeepAlive}};
+    
+        // =============== FUNCTIONS ===============
     void reconnect()
     {
         if (!networkAvailable())
