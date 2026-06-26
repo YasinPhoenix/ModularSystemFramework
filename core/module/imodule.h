@@ -1,9 +1,10 @@
 #pragma once
-#include "event/event.h"
-#include "command/command.h"
+#include "../event/event.h"
+#include "../command/command.h"
 #include "module_capabilities.h"
 
 class System;
+class IFileSystem;
 
 struct ModuleCommand
 {
@@ -32,6 +33,8 @@ public:
     virtual uint32_t updateInterval() { return 1000; }
 
     virtual void onEvent(const Event &e) {}
+
+    virtual IFileSystem *asFileSystem() { return nullptr; }
 
 private:
     System *sys;

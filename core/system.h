@@ -3,6 +3,7 @@
 #include "command/command_registry.h"
 #include "command/command_parser.h"
 #include "event/event_queue.h"
+#include "file_system/ifile_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
@@ -20,6 +21,8 @@ private:
     EventQueue highQueue;
     EventQueue normalQueue;
     EventQueue lowQueue;
+
+    IFileSystem *fileSystem = nullptr;
 
     TaskHandle_t updateTaskHandle = nullptr;
 
@@ -52,6 +55,9 @@ private:
 public:
     bool addModule(IModule *m)
     {
+        if (auto *fs = m->asFileSystem())
+            fileSystem = fs;
+
         if (!registry.add(m, this))
             return false;
 
@@ -74,6 +80,9 @@ public:
 
         return true;
     }
+
+    IFileSystem *getFileSystem() { return fileSystem; }
+    void setFileSystem(IFileSystem *fs) { fileSystem = fs; }
 
     static void emitLogLine(System *sys, const char *line)
     {
