@@ -1,6 +1,6 @@
 #pragma once
 #include <WiFi.h>
-#include "../core/imodule.h"
+#include "../core/module/imodule.h"
 #include "../core/system.h"
 #include "../core/api.h"
 #include "helpers/wifi_helpers.h"

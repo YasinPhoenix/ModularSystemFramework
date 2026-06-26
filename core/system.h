@@ -1,5 +1,5 @@
 #pragma once
-#include "module_registry.h"
+#include "module/module_registry.h"
 #include "command/command_registry.h"
 #include "command/command_parser.h"
 #include "event/event_queue.h"

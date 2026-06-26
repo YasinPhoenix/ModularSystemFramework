@@ -1,5 +1,5 @@
 #pragma once
-#include "../core/imodule.h"
+#include "../core/module/imodule.h"
 #include "../core/api.h"
 #include "../core/event/event_source.h"
 #include "helpers/log_helpers.h"
