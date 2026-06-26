@@ -1,5 +1,5 @@
 #pragma once
-#include "imodule.h"
+#include "IModule.h"
 
 #define MAX_MODULES 16
 

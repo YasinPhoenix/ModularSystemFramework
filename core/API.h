@@ -1,6 +1,6 @@
 #pragma once
-#include "system.h"
-#include "event/event.h"
+#include "System.h"
+#include "event/Event.h"
 
 // ---------- Serial ----------
 #define LOG(sys, msg, src, lvl, clr) \

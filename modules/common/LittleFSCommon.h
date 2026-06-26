@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../core/file_system/ifile.h"
+#include "../../core/fileSystem/IFile.h"
 #include <LittleFS.h>
 
 class LittleFsFile : public IFile

@@ -1,7 +1,7 @@
 #include <Arduino.h>
-#include "../core/system.h"
-#include "../modules/modules.h"
-#include "creds.h"
+#include "../core/System.h"
+#include "../modules/Modules.h"
+#include "Creds.h"
 
 System sys;
 

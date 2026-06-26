@@ -1,9 +1,9 @@
 #pragma once
-#include "module/module_registry.h"
-#include "command/command_registry.h"
-#include "command/command_parser.h"
-#include "event/event_queue.h"
-#include "file_system/ifile_system.h"
+#include "module/ModuleRegistry.h"
+#include "command/CommandRegistry.h"
+#include "command/CommandParser.h"
+#include "event/EventQueue.h"
+#include "fileSystem/IFileSystem.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 

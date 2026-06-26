@@ -1,5 +1,5 @@
 #pragma once
-#include "event.h"
+#include "Event.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/portmacro.h"
 

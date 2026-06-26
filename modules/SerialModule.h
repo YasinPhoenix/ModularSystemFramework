@@ -1,9 +1,9 @@
 #pragma once
-#include "../core/module/imodule.h"
-#include "../core/api.h"
-#include "../core/event/event_source.h"
-#include "helpers/log_helpers.h"
-#include "../core/system.h"
+#include "../core/module/IModule.h"
+#include "../core/API.h"
+#include "../core/event/EventSource.h"
+#include "../core/System.h"
+#include "common/LogCommon.h"
 
 class SerialModule : public IModule
 {

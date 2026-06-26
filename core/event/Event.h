@@ -1,9 +1,9 @@
 #pragma once
-#include "../system.h"
-#include "event_types.h"
-#include "event_source.h"
-#include "event_priorities.h"
-#include "event_data_types.h"
+#include "../System.h"
+#include "EventTypes.h"
+#include "EventSource.h"
+#include "EventPriorities.h"
+#include "EventDataTypes.h"
 
 struct Event
 {

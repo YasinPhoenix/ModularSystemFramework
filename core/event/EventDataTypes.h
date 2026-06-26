@@ -1,5 +1,5 @@
 #pragma once
-#include "../modules/helpers/log_helpers.h"
+#include "../modules/common/LogCommon.h"
 
 // Payloads (STRICT TYPES)
 

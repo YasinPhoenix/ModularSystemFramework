@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstring>
-#include "command.h"
+#include "Command.h"
 
 enum CommandParseResult
 {

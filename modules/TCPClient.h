@@ -2,8 +2,8 @@
 #include <WiFi.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
-#include "../core/system.h"
-#include "helpers/lock_guard.h"
+#include "../core/System.h"
+#include "common/LockGuard.h"
 
 /**
  * Message Protocol (newline-delimited):

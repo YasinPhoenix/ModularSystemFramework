@@ -1,7 +1,7 @@
 #pragma once
-#include "../event/event.h"
-#include "../command/command.h"
-#include "module_capabilities.h"
+#include "../event/Event.h"
+#include "../command/Command.h"
+#include "ModuleCaps.h"
 
 class System;
 class IFileSystem;

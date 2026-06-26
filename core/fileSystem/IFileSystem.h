@@ -1,7 +1,7 @@
 #pragma once
 
-#include "ifile.h"
-#include "../module/imodule.h"
+#include "IFile.h"
+#include "../module/IModule.h"
 
 class IFileSystem : public IModule
 {

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../core/file_system/ifile_system.h"
-#include "helpers/littlefs_file.h"
+#include "../core/fileSystem/IFileSystem.h"
+#include "common/LittleFSCommon.h"
 #include <LittleFS.h>
 
 class LittleFsModule : public IFileSystem

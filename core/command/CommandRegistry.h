@@ -1,6 +1,6 @@
 #pragma once
 
-#include "command.h"
+#include "Command.h"
 
 #define MAX_COMMANDS 64
 
