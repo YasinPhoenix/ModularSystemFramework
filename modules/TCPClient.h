@@ -14,6 +14,12 @@
 
 #define TCP_CLIENT_MESSAGE_MAX_SIZE 128
 
+struct MessageField
+{
+    const char *key;
+    const char *value;
+};
+
 class TCPClient : public IModule
 {
 public:
@@ -190,8 +196,8 @@ private:
         {"setServer", "Set the TCP server address and port <IP Address> [port=9000]", setServer},
         {"setDeviceName", "Set the device name for IDENTIFY message <name>", setDeviceName},
         {"setKeepAlive", "Set the keep-alive timeout in milliseconds <keep-alive=10000>", setKeepAlive}};
-    
-        // =============== FUNCTIONS ===============
+
+    // =============== FUNCTIONS ===============
     void reconnect()
     {
         if (!networkAvailable())
@@ -258,16 +264,82 @@ private:
         }
     }
 
+    const char *findField(const MessageField *fields, int count, const char *key)
+    {
+        for (int i = 0; i < count; ++i)
+        {
+            if (strcmp(fields[i].key, key) == 0)
+                return fields[i].value;
+        }
+
+        return nullptr;
+    }
+
     void processMessage(const char *msg)
     {
-        if (strncmp(msg, "TYPE:PING", 9) == 0)
+        char buffer[256];
+        strncpy(buffer, msg, sizeof(buffer) - 1);
+        buffer[sizeof(buffer) - 1] = '\0';
+
+        MessageField fields[10];
+        int count = 0;
+
+        char *token = strtok(buffer, "|");
+
+        while (token && count < 10)
+        {
+            char *colon = strchr(token, ':');
+
+            if (colon)
+            {
+                *colon = '\0';
+                fields[count++] = {token, colon + 1};
+            }
+
+            token = strtok(nullptr, "|");
+        }
+
+        const char *type = findField(fields, count, "TYPE");
+
+        if (!type)
+        {
+            LOG(sys, "Message missing TYPE field", SRC_TCP, LOG_ERROR, LOG_COLOR_RED);
+            return;
+        }
+
+        if (strcmp(type, "PING") == 0)
         {
             lastPing = millis();
             sendPong();
         }
-        else if (strncmp(msg, "TYPE:COMMAND", 12) == 0)
+        else if (strcmp(type, "EXECUTE") == 0)
         {
-            // Not implemented yet!
+            const char *mac = findField(fields, count, "MAC");
+
+            if (mac && strcmp(mac, macAddress) == 0)
+            {
+                const char *cmd = findField(fields, count, "COMMAND");
+
+                if (!cmd)
+                {
+                    LOG(sys, "EXECUTE message missing COMMAND field", SRC_TCP, LOG_ERROR, LOG_COLOR_RED);
+                    return;
+                }
+
+                auto result = sys->executeCommand(cmd);
+                if (result.success)
+                {
+                    LOGF(sys, SRC_SERIAL, LOG_DEBUG, LOG_COLOR_GREEN, "Command executed successfully: %s", result.message);
+                }
+                else
+                {
+                    LOGF(sys, SRC_SERIAL, LOG_ERROR, LOG_COLOR_RED, "Command execution failed: %s", result.message);
+                }
+            }
+        }
+        else
+        {
+            LOGF(sys, SRC_TCP, LOG_WARN, LOG_COLOR_YELLOW, "Unknown message type: %s", type);
         }
     }
 
