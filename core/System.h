@@ -96,7 +96,7 @@ public:
         const char *commandFilter = nullptr;
 
         if (cmd.argumentCount > 2)
-            return {false, "Too many arguments. Usage: System --help [module] [command]"};
+            return {false, "Too many arguments. Usage: System help [module] [command]"};
 
         if (cmd.argumentCount >= 1)
             moduleFilter = cmd.arg(0);
@@ -157,7 +157,7 @@ public:
                     if (strcmp(entries[i].moduleName, modules[m]) == 0)
                     {
                         char commandName[COMMAND_NAME_MAX_LENGTH + 3];
-                        snprintf(commandName, sizeof(commandName), "--%s", entries[i].name);
+                        snprintf(commandName, sizeof(commandName), "%s", entries[i].name);
                         emitCommandRow(commandName, entries[i].help);
                     }
                 }
@@ -176,7 +176,7 @@ public:
                 if (strcmp(entries[i].moduleName, moduleFilter) == 0)
                 {
                     char commandName[COMMAND_NAME_MAX_LENGTH + 3];
-                    snprintf(commandName, sizeof(commandName), "--%s", entries[i].name);
+                    snprintf(commandName, sizeof(commandName), "%s", entries[i].name);
                     emitCommandRow(commandName, entries[i].help);
                     found = true;
                 }
@@ -196,7 +196,7 @@ public:
                 emitLogLine(sys, "Command detail:");
                 emitHeader(moduleFilter);
                 char commandName[COMMAND_NAME_MAX_LENGTH + 3];
-                snprintf(commandName, sizeof(commandName), "--%s", entries[i].name);
+                snprintf(commandName, sizeof(commandName), "%s", entries[i].name);
                 emitCommandRow(commandName, entries[i].help);
                 return {true, "Help output emitted"};
             }
@@ -205,11 +205,26 @@ public:
         return {false, "Command not found"};
     }
 
+    bool getCommandInfo(uint8_t index, CommandInfo &info)
+    {
+        if (index >= commands.getCount())
+            return false;
+
+        const CommandEntry *entry = commands.getEntries() + index;
+        info.moduleName = entry->moduleName;
+        info.name = entry->name;
+        info.help = entry->help;
+
+        return true;
+    }
+
+    uint8_t getCommandCount() const { return commands.getCount(); }
+
     void registerBuiltInCommands()
     {
         commands.registerCommand("System",
                                  "help",
-                                 "Show available commands. Usage: System --help [module] [command]",
+                                 "Show available commands. Usage: System help [module] [command]",
                                  helpHandler,
                                  this);
     }

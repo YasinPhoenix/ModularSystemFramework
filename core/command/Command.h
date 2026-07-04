@@ -37,3 +37,9 @@ struct CommandEntry
     CommandHandler handler;
     void *context;
 };
+
+struct CommandInfo{
+    const char *moduleName;
+    const char *name;
+    const char *help;
+};

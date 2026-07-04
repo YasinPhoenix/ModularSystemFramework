@@ -57,6 +57,15 @@ public:
 
         if (isConnected())
         {
+            if (!commandsSent)
+            {
+                commandsSent = true;
+                while (sendCommands())
+                {
+                    vTaskDelay(10); // Small delay to avoid flooding
+                }
+            }
+
             handleIncoming();
             if (millis() - lastPing > keepAlive)
             {
@@ -64,6 +73,8 @@ public:
                 disconnect();
             }
         }
+        else
+            commandsSent = false;
 
         reconnect();
     }
@@ -121,6 +132,7 @@ private:
     // Connection state
     bool configured = false;
     uint32_t lastAttempt = 0;
+    bool commandsSent = false;
 
     // Ping timings
     uint32_t lastPing = 0;
@@ -340,6 +352,34 @@ private:
         else
         {
             LOGF(sys, SRC_TCP, LOG_WARN, LOG_COLOR_YELLOW, "Unknown message type: %s", type);
+        }
+    }
+
+    bool sendCommands()
+    {
+        static uint8_t index = 0;
+        CommandInfo info;
+
+        if (sys->getCommandInfo(index, info))
+        {
+            char buffer[256];
+            snprintf(buffer, sizeof(buffer),
+                     "TYPE:COMMANDS|MAC:%s|MODULE_NAME:%s|COMMAND_NAME:%s|HELP:%s",
+                     macAddress, info.moduleName, info.name, info.help ? info.help : "");
+
+
+            LOGF(sys, SRC_TCP, LOG_DEBUG, LOG_COLOR_CYAN, "Sending command info: %s", buffer);
+
+            LockGuard lock(mutex);
+
+            client.println(buffer);
+            index++;
+            return true;
+        }
+        else
+        {
+            index = 0; // Reset for next time
+            return false;
         }
     }
 

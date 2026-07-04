@@ -57,6 +57,7 @@ public:
 
                 return true;
     }
+
     bool setAp(const char *ssid, const char *pass)
     {
         if (!areCredentialsValid(ssid, pass))
@@ -308,7 +309,7 @@ private:
         if (!wifi->setSta(cmd.arg(0), cmd.arg(1)))
             return {false, "Invalid credentials. Check length requirements."};
 
-        return {true, "AP credentials set successfully"};
+        return {true, "STA credentials set successfully"};
     }
 
     static CommandResult setAp(void *ctx, const Command &cmd)

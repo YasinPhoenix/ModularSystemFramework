@@ -46,11 +46,6 @@ public:
         if (!token)
             return CMD_PARSE_EMPTY;
 
-        if (strncmp(token, "--", 2) != 0)
-            return CMD_PARSE_INVALID_FORMAT;
-
-        token += 2;
-
         if (*token == '\0')
             return CMD_PARSE_INVALID_FORMAT;
 
