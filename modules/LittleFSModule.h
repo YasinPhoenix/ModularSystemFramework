@@ -13,6 +13,8 @@ public:
     {
         isMounted = LittleFS.begin(true); // true = format if failed
         this->sys = sys;
+
+        LOG_DEBUG(sys, "LittleFS initialized!", SRC_LITTLEFS);
         return isMounted;
     }
 

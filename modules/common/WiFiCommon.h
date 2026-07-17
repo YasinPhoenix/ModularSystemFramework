@@ -33,6 +33,55 @@ struct WiFiConfig
     bool hasStaCred() const { return staSsid[0] != '\0'; }
     bool hasApCred() const { return apSsid[0] != '\0'; }
 
+    bool setMode(uint8_t mode)
+    {
+        switch (mode)
+        {
+        case 0:
+            this->mode = WiFiMode::STA;
+            return true;
+        case 1:
+            this->mode = WiFiMode::AP;
+            return true;
+        case 2:
+            this->mode = WiFiMode::AP_STA;
+            return true;
+        default:
+            this->mode = WiFiMode::OFF;
+            return false;
+        }
+    }
+
+    int8_t getMode() const
+    {
+        switch (mode)
+        {
+        case WiFiMode::STA:
+            return 0;
+        case WiFiMode::AP:
+            return 1;
+        case WiFiMode::AP_STA:
+            return 2;
+        default:
+            return -1; // OFF
+        }
+    }
+
+    const char *getModeStr()
+    {
+        switch (mode)
+        {
+        case WiFiMode::STA:
+            return "0";
+        case WiFiMode::AP:
+            return "1";
+        case WiFiMode::AP_STA:
+            return "2";
+        default:
+            return "-1";
+        }
+    }
+
     bool operator==(const WiFiConfig &rhs) const
     {
         return mode == rhs.mode &&

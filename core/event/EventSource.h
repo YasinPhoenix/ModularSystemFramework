@@ -6,7 +6,8 @@ enum EventSource
     SRC_SYSTEM,
     SRC_SERIAL,
     SRC_TCP,
-    SRC_WIFI
+    SRC_WIFI,
+    SRC_LITTLEFS
 };
 
 inline const char *toString(EventSource s)
@@ -27,6 +28,9 @@ inline const char *toString(EventSource s)
 
     case SRC_WIFI:
         return "WIFI";
+
+    case SRC_LITTLEFS:
+        return "LittleFS";
 
     default:
         return "UNKNOWN";

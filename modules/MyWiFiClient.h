@@ -1,6 +1,7 @@
 #pragma once
 #include <WiFi.h>
 #include "../core/module/IModule.h"
+#include "../core/fileSystem/ConfigScope.h"
 #include "../core/System.h"
 #include "../core/API.h"
 #include "common/WiFiCommon.h"
@@ -10,6 +11,8 @@ class MyWiFiClient : public IModule
 public:
     const char *name() override { return "WiFi"; }
 
+    MyWiFiClient() : configScope(name()) {}
+
     MODULE_COMMANDS();
 
     bool init(System *sys) override
@@ -18,6 +21,13 @@ public:
         WiFi.onEvent([this](arduino_event_id_t event, arduino_event_info_t info)
                      { this->onWiFiEvent(event, info); });
         WiFi.setAutoReconnect(false);
+
+        char result[128];
+        configAvailable = configScope.init(sys->getFileSystem(), result);
+        LOGF(sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_MAGENTA, "Config scope initialization result: %s\n", result);
+
+        loadConfig();
+
         return true;
     }
     void update() override
@@ -32,6 +42,9 @@ public:
 
     bool setSta(const char *ssid, const char *pass)
     {
+        bool ssidChanged = strcmp(appliedConfig.staSsid, ssid) != 0;
+        bool passChanged = strcmp(appliedConfig.staPass, pass) != 0;
+
         if (!areCredentialsValid(ssid, pass))
         {
             LOGF(sys, SRC_WIFI, LOG_ERROR, LOG_COLOR_RED,
@@ -47,19 +60,27 @@ public:
         else
             LOG_INFO(sys, "STA SSID didn't change!", SRC_WIFI, LOG_COLOR_CYAN);
 
-            if (pass && strlen(pass) > 0 && strcmp(appliedConfig.staPass, pass) != 0)
-            {
-                strncpy(config.staPass, pass, WIFI_PASS_MAX_LEN);
-                config.staPass[WIFI_PASS_MAX_LEN] = '\0';
-            }
-            else
-                LOG_INFO(sys, "STA password didn't change!", SRC_WIFI, LOG_COLOR_CYAN);
+        if (pass && strlen(pass) > 0 && strcmp(appliedConfig.staPass, pass) != 0)
+        {
+            strncpy(config.staPass, pass, WIFI_PASS_MAX_LEN);
+            config.staPass[WIFI_PASS_MAX_LEN] = '\0';
+        }
+        else
+            LOG_INFO(sys, "STA password didn't change!", SRC_WIFI, LOG_COLOR_CYAN);
 
-                return true;
+        if (!configScope.set("staSsid", config.staSsid))
+            LOG_ERROR(sys, "Failed to save STA SSID to config", SRC_WIFI);
+        if (!configScope.set("staPass", config.staPass))
+            LOG_ERROR(sys, "Failed to save STA password to config", SRC_WIFI);
+
+        return true;
     }
 
     bool setAp(const char *ssid, const char *pass)
     {
+        bool ssidChanged = strcmp(appliedConfig.apSsid, ssid) != 0;
+        bool passChanged = strcmp(appliedConfig.apPass, pass) != 0;
+
         if (!areCredentialsValid(ssid, pass))
         {
             LOGF(sys, SRC_WIFI, LOG_ERROR, LOG_COLOR_RED,
@@ -75,18 +96,26 @@ public:
         else
             LOG_INFO(sys, "AP SSID didn't change!", SRC_WIFI, LOG_COLOR_CYAN);
 
-            if (pass && strlen(pass) > 0 && strcmp(appliedConfig.apPass, pass) != 0)
-            {
-                strncpy(config.apPass, pass, WIFI_PASS_MAX_LEN);
-                config.apPass[WIFI_PASS_MAX_LEN] = '\0';
-            }
-            else
-                LOG_INFO(sys, "AP password didn't change!", SRC_WIFI, LOG_COLOR_CYAN);
+        if (pass && strlen(pass) > 0 && strcmp(appliedConfig.apPass, pass) != 0)
+        {
+            strncpy(config.apPass, pass, WIFI_PASS_MAX_LEN);
+            config.apPass[WIFI_PASS_MAX_LEN] = '\0';
+        }
+        else
+            LOG_INFO(sys, "AP password didn't change!", SRC_WIFI, LOG_COLOR_CYAN);
 
-                return true;
+        if (!configScope.set("apSsid", config.apSsid))
+            LOG_ERROR(sys, "Failed to save AP SSID to config", SRC_WIFI);
+        if (!configScope.set("apPass", config.apPass))
+            LOG_ERROR(sys, "Failed to save AP password to config", SRC_WIFI);
+
+        return true;
     }
+
     bool setMode(WiFiMode mode)
     {
+        bool modeChanged = mode != appliedConfig.mode;
+
         if (!isModeValid(mode))
         {
             LOGF(sys, SRC_WIFI, LOG_ERROR, LOG_COLOR_RED, "WiFi mode invalid: %d\n", mode);
@@ -100,8 +129,13 @@ public:
         }
 
         config.mode = mode;
+
+        if (!configScope.set("mode", config.getModeStr()))
+            LOG_ERROR(sys, "Failed to save WiFi mode to config", SRC_WIFI);
+
         return true;
     }
+
     inline void setAutoReconnect(bool enable) { autoReconnect = enable; }
 
     bool commence()
@@ -235,7 +269,7 @@ public:
         else
         {
             apIp = IPAddress();
-            LOG_DEBUG(sys, "Disconnected STA!", SRC_WIFI);
+            LOG_DEBUG(sys, "Disconnected AP!", SRC_WIFI);
         }
 
         if (!WiFi.mode(WIFI_OFF))
@@ -282,6 +316,9 @@ public:
 private:
     // =============== VARIABLES ===============
     System *sys;
+
+    ConfigScope configScope;
+    bool configAvailable = false;
 
     WiFiConnectionState state = WiFiConnectionState::OFF;
 
@@ -397,6 +434,71 @@ private:
     };
 
     // =============== FUNCTIONS ===============
+    bool loadConfig()
+    {
+        if (!configAvailable)
+            return false;
+
+        char result[128];
+
+        constexpr const char *keys[] = {"mode", "staSsid", "staPass", "apSsid", "apPass"};
+
+        uint8_t index = 0;
+        uint8_t availableCount = 0;
+
+        for (const char *key : keys)
+        {
+            for (const char *item : configScope.items)
+            {
+                if (item[0] == '\0') // skip empty entries
+                    continue;
+
+                if (strcmp(key, item) == 0)
+                {
+                    switch (index)
+                    {
+                    case 0:
+                        config.setMode(atoi(configScope.get(key)));
+                        LOGF(sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded WiFi mode: %d", config.getMode());
+                        break;
+
+                    case 1:
+                        strncpy(config.staSsid, configScope.get(key), WIFI_SSID_MAX_LEN);
+                        config.staSsid[sizeof(config.staSsid) - 1] = '\0';
+                        LOGF(sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded STA SSID: %s", config.staSsid);
+                        break;
+
+                    case 2:
+                        strncpy(config.staPass, configScope.get(key), WIFI_SSID_MAX_LEN);
+                        config.staPass[sizeof(config.staPass) - 1] = '\0';
+                        LOGF(sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded STA password: %s", config.staPass);
+                        break;
+
+                    case 3:
+                        strncpy(config.apSsid, configScope.get(key), WIFI_SSID_MAX_LEN);
+                        config.apSsid[sizeof(config.apSsid) - 1] = '\0';
+                        LOGF(sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded AP SSID: %s", config.apSsid);
+                        break;
+
+                    case 4:
+                        strncpy(config.apPass, configScope.get(key), WIFI_SSID_MAX_LEN);
+                        config.apPass[sizeof(config.apPass) - 1] = '\0';
+                        LOGF(sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded AP password: %s", config.apPass);
+                        break;
+                    }
+                    availableCount++;
+                    break;
+                }
+            }
+            index++;
+        }
+
+        if (!availableCount)
+            LOG_DEBUG(sys, "No WiFi configurations available!", SRC_WIFI);
+
+        return true;
+    }
+
     inline bool hasIntervalElapsed() { return millis() - lastConnectionAttempt > reconnctInterval; }
 
     bool areCredentialsValid(const char *ssid, const char *pass)

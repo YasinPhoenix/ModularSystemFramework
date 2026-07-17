@@ -22,6 +22,8 @@ public:
 
     size_t read(uint8_t *buf, size_t len) override { return file.read(buf, len); }
 
+    size_t readBytesUntil(char terminator, char *buffer, size_t length) override { return file.readBytesUntil(terminator, buffer, length); }
+
     size_t write(const uint8_t *buf, size_t len) override { return file.write(buf, len); }
 
     void flush() override { file.flush(); }

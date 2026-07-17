@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 
 enum class FileMode
 {
@@ -26,6 +26,7 @@ public:
     virtual bool seek(size_t pos) = 0;
 
     virtual size_t read(uint8_t *buf, size_t len) = 0;
+    virtual size_t readBytesUntil(char terminator, char *buffer, size_t length) = 0;
     virtual size_t write(const uint8_t *buf, size_t len) = 0;
 
     virtual void flush() = 0;
