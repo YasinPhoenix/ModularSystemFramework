@@ -1,7 +1,6 @@
 #pragma once
 #include "../event/Event.h"
 #include "../command/Command.h"
-#include "ModuleCaps.h"
 
 class System;
 class IFileSystem;
@@ -17,7 +16,6 @@ class IModule
 {
 public:
     virtual const char *name() = 0;
-    virtual uint16_t capabilities() { return 0xFFFFFFFF; }
 
     virtual const ModuleCommand *getCommands() { return nullptr; }
     virtual uint8_t getCommandCount() { return 0; }
@@ -29,14 +27,13 @@ public:
     virtual uint32_t eventMask() { return 0xFFFFFFFF; }
     // Default: listen to everyone (safe fallback)
 
-    // Update interval in ms
     virtual uint32_t updateInterval() { return 1000; }
 
     virtual void onEvent(const Event &e) {}
 
     virtual IFileSystem *asFileSystem() { return nullptr; }
 
-private:
+protected:
     System *sys;
 };
 

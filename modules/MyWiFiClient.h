@@ -11,25 +11,31 @@ class MyWiFiClient : public IModule
 public:
     const char *name() override { return "WiFi"; }
 
-    MyWiFiClient() : configScope(name()) {}
-
     MODULE_COMMANDS();
 
     bool init(System *sys) override
     {
+        if (!sys)
+        {
+            LOG_ERROR(sys, "System wasn't given at module initiation!", SRC_WIFI);
+            return false;
+        }
+
         this->sys = sys;
+
         WiFi.onEvent([this](arduino_event_id_t event, arduino_event_info_t info)
                      { this->onWiFiEvent(event, info); });
         WiFi.setAutoReconnect(false);
 
         char result[128];
-        configAvailable = configScope.init(sys->getFileSystem(), result);
+        configAvailable = scope.init(name(), sys->getFileSystem(), result);
         LOGF(sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_MAGENTA, "Config scope initialization result: %s\n", result);
 
         loadConfig();
 
         return true;
     }
+
     void update() override
     {
         if (state == WiFiConnectionState::DISCONNECTED &&
@@ -68,9 +74,9 @@ public:
         else
             LOG_INFO(sys, "STA password didn't change!", SRC_WIFI, LOG_COLOR_CYAN);
 
-        if (!configScope.set("staSsid", config.staSsid))
+        if (!scope.set("staSsid", config.staSsid))
             LOG_ERROR(sys, "Failed to save STA SSID to config", SRC_WIFI);
-        if (!configScope.set("staPass", config.staPass))
+        if (!scope.set("staPass", config.staPass))
             LOG_ERROR(sys, "Failed to save STA password to config", SRC_WIFI);
 
         return true;
@@ -104,9 +110,9 @@ public:
         else
             LOG_INFO(sys, "AP password didn't change!", SRC_WIFI, LOG_COLOR_CYAN);
 
-        if (!configScope.set("apSsid", config.apSsid))
+        if (!scope.set("apSsid", config.apSsid))
             LOG_ERROR(sys, "Failed to save AP SSID to config", SRC_WIFI);
-        if (!configScope.set("apPass", config.apPass))
+        if (!scope.set("apPass", config.apPass))
             LOG_ERROR(sys, "Failed to save AP password to config", SRC_WIFI);
 
         return true;
@@ -130,7 +136,7 @@ public:
 
         config.mode = mode;
 
-        if (!configScope.set("mode", config.getModeStr()))
+        if (!scope.set("mode", config.getModeStr(true)))
             LOG_ERROR(sys, "Failed to save WiFi mode to config", SRC_WIFI);
 
         return true;
@@ -313,11 +319,18 @@ public:
     inline IPAddress getStaIp() const { return staIp; }
     inline IPAddress getApIp() const { return apIp; }
 
+    WiFiConfig getConfig() const
+    {
+        WiFiConfig newConfig = config;
+        
+        memset(newConfig.staPass, 0, sizeof(newConfig.staPass));
+        memset(newConfig.apPass, 0, sizeof(newConfig.apPass));
+        return newConfig;
+    }
+
 private:
     // =============== VARIABLES ===============
-    System *sys;
-
-    ConfigScope configScope;
+    ConfigScope scope;
     bool configAvailable = false;
 
     WiFiConnectionState state = WiFiConnectionState::OFF;
@@ -423,6 +436,19 @@ private:
         return {true, "Success"};
     }
 
+    static CommandResult getConfig(void *ctx, const Command &cmd)
+    {
+        MyWiFiClient *wifi = static_cast<MyWiFiClient *>(ctx);
+
+        WiFiConfig config = wifi->getConfig();
+        LOGF(wifi->sys, SRC_WIFI, LOG_INFO, LOG_COLOR_MAGENTA,
+             "WiFi saved credentials: { Mode: %s | STA SSID: %s | AP SSID: %s }",
+             config.getModeStr(),
+             config.staSsid[0] == '\0' ? "[NOT SET]" : config.staSsid,
+             config.apSsid[0] == '\0' ? "[NOT SET]" : config.apSsid);
+        return {true, "Success"};
+    }
+
     static constexpr ModuleCommand moduleCommands[] = {
         {"setSta", "Set WiFi STA credentials <SSID> [password=\"\"]", setSta},
         {"setAp", "Set WiFi AP credentials <SSID> [password=\"\"]", setAp},
@@ -431,6 +457,7 @@ private:
         {"commence", "Commence WiFi network", commence},
         {"stop", "Stop WiFi module", stop},
         {"clientCount", "Get AP client count", getClientCount},
+        {"getConfig", "Get saved configuration!", getConfig},
     };
 
     // =============== FUNCTIONS ===============
@@ -448,7 +475,7 @@ private:
 
         for (const char *key : keys)
         {
-            for (const char *item : configScope.items)
+            for (const char *item : scope.items)
             {
                 if (item[0] == '\0') // skip empty entries
                     continue;
@@ -458,30 +485,30 @@ private:
                     switch (index)
                     {
                     case 0:
-                        config.setMode(atoi(configScope.get(key)));
+                        config.setMode(atoi(scope.get(key)));
                         LOGF(sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded WiFi mode: %d", config.getMode());
                         break;
 
                     case 1:
-                        strncpy(config.staSsid, configScope.get(key), WIFI_SSID_MAX_LEN);
+                        strncpy(config.staSsid, scope.get(key), WIFI_SSID_MAX_LEN);
                         config.staSsid[sizeof(config.staSsid) - 1] = '\0';
                         LOGF(sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded STA SSID: %s", config.staSsid);
                         break;
 
                     case 2:
-                        strncpy(config.staPass, configScope.get(key), WIFI_SSID_MAX_LEN);
+                        strncpy(config.staPass, scope.get(key), WIFI_SSID_MAX_LEN);
                         config.staPass[sizeof(config.staPass) - 1] = '\0';
                         LOGF(sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded STA password: %s", config.staPass);
                         break;
 
                     case 3:
-                        strncpy(config.apSsid, configScope.get(key), WIFI_SSID_MAX_LEN);
+                        strncpy(config.apSsid, scope.get(key), WIFI_SSID_MAX_LEN);
                         config.apSsid[sizeof(config.apSsid) - 1] = '\0';
                         LOGF(sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded AP SSID: %s", config.apSsid);
                         break;
 
                     case 4:
-                        strncpy(config.apPass, configScope.get(key), WIFI_SSID_MAX_LEN);
+                        strncpy(config.apPass, scope.get(key), WIFI_SSID_MAX_LEN);
                         config.apPass[sizeof(config.apPass) - 1] = '\0';
                         LOGF(sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded AP password: %s", config.apPass);
                         break;

@@ -67,18 +67,18 @@ struct WiFiConfig
         }
     }
 
-    const char *getModeStr()
+    const char *getModeStr(bool num = false)
     {
         switch (mode)
         {
         case WiFiMode::STA:
-            return "0";
+            return num ? "0" : "STA";
         case WiFiMode::AP:
-            return "1";
+            return num ? "1" : "AP";
         case WiFiMode::AP_STA:
-            return "2";
+            return num ? "2" : "AP_STA";
         default:
-            return "-1";
+            return num ? "-1" : "OFF";
         }
     }
 

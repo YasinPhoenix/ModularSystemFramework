@@ -78,17 +78,21 @@ public:
     char items[20][32];
     size_t itemCount = 0;
 
-    ConfigScope(const char *name)
+    bool init(const char *name, IFileSystem *fs, char *result = nullptr)
     {
+        if (!name)
+        {
+            if (result)
+                strcpy(result, "No name was given to the config scope initiation!");
+            return false;
+        }
+
         snprintf(this->dir, sizeof(this->dir), "/%s", name);
         this->dir[sizeof(this->dir) - 1] = '\0';
 
         snprintf(this->itemsListDir, sizeof(this->itemsListDir), "/%s/configured", name);
         this->itemsListDir[sizeof(this->itemsListDir) - 1] = '\0';
-    }
 
-    bool init(IFileSystem *fs, char *result = nullptr)
-    {
         if (!fs)
         {
             if (result)
@@ -166,7 +170,7 @@ public:
             if (result)
                 sprintf(result, "Failed to write key to configured itms: %s", key);
 
-            return true;
+        return true;
     }
 
     bool get(const char *key, char *value, size_t valueSize, char *result = nullptr)
