@@ -9,6 +9,8 @@ private:
     char itemsListDir[64 + 11];
     IFileSystem *fs;
 
+    bool initialized = false;
+
     size_t readFile(const char *path)
     {
         if (!path)
@@ -124,11 +126,19 @@ public:
         if (result)
             strcpy(result, "Successfully initialized config scope!");
 
+        initialized = true;
         return true;
     }
 
     bool set(const char *key, const char *value, char *result = nullptr)
     {
+        if (!initialized)
+        {
+            if (result)
+                strcpy(result, "Config scope not initialized");
+            return false;
+        }
+
         if (!fs)
         {
             if (result)
@@ -175,6 +185,13 @@ public:
 
     bool get(const char *key, char *value, size_t valueSize, char *result = nullptr)
     {
+        if (!initialized)
+        {
+            if (result)
+                strcpy(result, "Config scope not initialized");
+            return false;
+        }
+        
         if (!fs)
         {
             if (result)
@@ -225,6 +242,13 @@ public:
 
     bool getBatch(const char *keys[], size_t keyCount, char values[][128], char *result = nullptr)
     {
+        if (!initialized)
+        {
+            if (result)
+                strcpy(result, "Config scope not initialized");
+            return false;
+        }
+
         if (!keys)
         {
             if (result)

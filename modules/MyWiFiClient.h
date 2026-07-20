@@ -1,7 +1,6 @@
 #pragma once
 #include <WiFi.h>
 #include "../core/module/IModule.h"
-#include "../core/fileSystem/ConfigScope.h"
 #include "../core/System.h"
 #include "../core/API.h"
 #include "common/WiFiCommon.h"
@@ -322,7 +321,7 @@ public:
     WiFiConfig getConfig() const
     {
         WiFiConfig newConfig = config;
-        
+
         memset(newConfig.staPass, 0, sizeof(newConfig.staPass));
         memset(newConfig.apPass, 0, sizeof(newConfig.apPass));
         return newConfig;
@@ -482,33 +481,35 @@ private:
 
                 if (strcmp(key, item) == 0)
                 {
+                    const char *value = scope.get(key);
+
                     switch (index)
                     {
                     case 0:
-                        config.setMode(atoi(scope.get(key)));
+                        config.setMode(atoi(value));
                         LOGF(sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded WiFi mode: %d", config.getMode());
                         break;
 
                     case 1:
-                        strncpy(config.staSsid, scope.get(key), WIFI_SSID_MAX_LEN);
+                        strncpy(config.staSsid, value, WIFI_SSID_MAX_LEN);
                         config.staSsid[sizeof(config.staSsid) - 1] = '\0';
                         LOGF(sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded STA SSID: %s", config.staSsid);
                         break;
 
                     case 2:
-                        strncpy(config.staPass, scope.get(key), WIFI_SSID_MAX_LEN);
+                        strncpy(config.staPass, value, WIFI_SSID_MAX_LEN);
                         config.staPass[sizeof(config.staPass) - 1] = '\0';
                         LOGF(sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded STA password: %s", config.staPass);
                         break;
 
                     case 3:
-                        strncpy(config.apSsid, scope.get(key), WIFI_SSID_MAX_LEN);
+                        strncpy(config.apSsid, value, WIFI_SSID_MAX_LEN);
                         config.apSsid[sizeof(config.apSsid) - 1] = '\0';
                         LOGF(sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded AP SSID: %s", config.apSsid);
                         break;
 
                     case 4:
-                        strncpy(config.apPass, scope.get(key), WIFI_SSID_MAX_LEN);
+                        strncpy(config.apPass, value, WIFI_SSID_MAX_LEN);
                         config.apPass[sizeof(config.apPass) - 1] = '\0';
                         LOGF(sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded AP password: %s", config.apPass);
                         break;
@@ -521,7 +522,7 @@ private:
         }
 
         if (!availableCount)
-            LOG_DEBUG(sys, "No WiFi configurations available!", SRC_WIFI);
+            LOG_WARN(sys, "No WiFi configurations available!", SRC_WIFI);
 
         return true;
     }

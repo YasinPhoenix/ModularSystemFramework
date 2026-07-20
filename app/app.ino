@@ -13,11 +13,9 @@ LittleFsModule lfs;
 
 void setup()
 {
-    serial.setLogLevel(LOG_DEBUG);
-    serial.setColorUse(false);
-    sys.addModule(&serial);
-
     sys.addModule(&lfs);
+    
+    sys.addModule(&serial);
 
     // wifi.config(WIFI_CLIENT_MODE_STA, WIFI_SSID, WIFI_PASS);
     sys.addModule(&wifi);

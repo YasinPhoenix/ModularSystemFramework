@@ -1,8 +1,8 @@
 #pragma once
 #include "../core/module/IModule.h"
-#include "../core/API.h"
 #include "../core/event/EventSource.h"
 #include "../core/System.h"
+#include "../core/API.h"
 #include "common/LogCommon.h"
 
 class SerialModule : public IModule
@@ -14,8 +14,22 @@ public:
 
     bool init(System *sys) override
     {
+        if (!sys)
+        {
+            LOG_ERROR(sys, "System wasn't given at module initiation!", SRC_WIFI);
+            return false;
+        }
+
         this->sys = sys;
+
         Serial.begin(115200);
+
+        char result[128];
+        configAvailable = scope.init(name(), sys->getFileSystem(), result);
+        LOGF(sys, SRC_SERIAL, LOG_DEBUG, LOG_COLOR_MAGENTA, "Config scope initialization result: %s\n", result);
+
+        loadConfig();
+
         return true;
     }
 
@@ -41,9 +55,21 @@ public:
         }
     }
 
-    void setLogLevel(LogLevel l) { minLogLevel = l; }
+    void setLogLevel(LogLevel l)
+    {
+        minLogLevel = l;
 
-    void setColorUse(bool b) { useColors = b; }
+        if (!scope.set("logLevel", toString(minLogLevel)))
+            LOG_ERROR(sys, "Failed to save log level!", SRC_SERIAL);
+    }
+
+    void setColorUse(bool b)
+    {
+        useColors = b;
+
+        if (!scope.set("colorUse", useColors ? "1" : "0"))
+            LOG_ERROR(sys, "Failed to save color use option!", SRC_SERIAL);
+    }
 
     uint32_t eventMask() override { return EVENT_BIT(EVENT_LOG); }
 
@@ -81,10 +107,11 @@ public:
 
 private:
     // =============== VARIABLES ===============
-    System *sys;
-
-    LogLevel minLogLevel = LOG_INFO;
+    LogLevel minLogLevel = LOG_DEBUG;
     bool useColors = true;
+
+    ConfigScope scope;
+    bool configAvailable = false;
 
     // =============== COMMANDS ===============
     static CommandResult setLogLevel(void *ctx, const Command &cmd)
@@ -120,4 +147,86 @@ private:
     static constexpr ModuleCommand moduleCommands[] = {
         {"setLogLevel", "Set the minimum log level <0=INFO|1=WARN|2=ERROR|3=DEBUG>", setLogLevel},
         {"setColorUse", "Enable or disable color output <enable=0>", setColorUse}};
+
+    bool loadConfig()
+    {
+        if (!configAvailable)
+            return false;
+
+        char result[128];
+
+        constexpr const char *keys[] = {"colorUse", "logLevel"};
+
+        uint8_t index = 0;
+        uint8_t availableCount = 0;
+
+        for (const char *key : keys)
+        {
+            for (const char *item : scope.items)
+            {
+                if (item[0] == '\0') // skip empty entries
+                    continue;
+
+                if (strcmp(key, item) == 0)
+                {
+                    const char *value = scope.get(key);
+
+                    switch (index)
+                    {
+                    case 0:
+                        if (strcmp(value, "1") == 0)
+                        {
+                            useColors = true;
+                        }
+                        else if (strcmp(value, "0") == 0)
+                        {
+                            useColors = false;
+                        }
+                        else
+                        {
+                            LOGF(sys, SRC_SERIAL, LOG_ERROR, LOG_COLOR_RED, "Failed to load color use option, value: %s", value);
+                            break;
+                        }
+
+                        LOGF(sys, SRC_SERIAL, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded colorUse from config: %u", useColors);
+                        break;
+
+                    case 1:
+                        if (strcmp(value, "INFO") == 0)
+                        {
+                            minLogLevel = LOG_INFO;
+                        }
+                        else if (strcmp(value, "WARN") == 0)
+                        {
+                            minLogLevel = LOG_WARN;
+                        }
+                        else if (strcmp(value, "ERROR") == 0)
+                        {
+                            minLogLevel = LOG_ERROR;
+                        }
+                        else if (strcmp(value, "DEBUG") == 0)
+                        {
+                            minLogLevel = LOG_DEBUG;
+                        }
+                        else
+                        {
+                            LOGF(sys, SRC_SERIAL, LOG_ERROR, LOG_COLOR_RED, "Failed to load log level, value: %s", value);
+                            break;
+                        }
+
+                        LOGF(sys, SRC_SERIAL, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded logLevel from config: %s", toString(minLogLevel));
+                        break;
+                    }
+                    availableCount++;
+                    break;
+                }
+            }
+            index++;
+        }
+
+        if (!availableCount)
+            LOG_WARN(sys, "No serial configurations available!", SRC_SERIAL);
+
+        return true;
+    }
 };

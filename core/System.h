@@ -4,6 +4,7 @@
 #include "command/CommandParser.h"
 #include "event/EventQueue.h"
 #include "fileSystem/IFileSystem.h"
+#include "fileSystem/ConfigScope.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
