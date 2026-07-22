@@ -2,6 +2,16 @@
 
 #include "IFileSystem.h"
 
+class IModule;
+
+typedef void (*ConfigHandler)(void *context, const char *value);
+
+struct ConfigField
+{
+    const char *key;
+    ConfigHandler apply;
+};
+
 class ConfigScope
 {
 private:
@@ -61,8 +71,7 @@ private:
             return false;
 
         char itemWithNL[33];
-        snprintf(itemWithNL, sizeof(itemWithNL) - 1, "%s\n", item);
-        itemWithNL[sizeof(itemWithNL) - 1] = '\0';
+        snprintf(itemWithNL, sizeof(itemWithNL), "%s\n", item);
 
         file->write((const uint8_t *)itemWithNL, strlen(itemWithNL));
         file->close();
@@ -85,20 +94,18 @@ public:
         if (!name)
         {
             if (result)
-                strcpy(result, "No name was given to the config scope initiation!");
+                strncpy(result, "No name was given to the config scope initiation!", 128);
             return false;
         }
 
         snprintf(this->dir, sizeof(this->dir), "/%s", name);
-        this->dir[sizeof(this->dir) - 1] = '\0';
 
         snprintf(this->itemsListDir, sizeof(this->itemsListDir), "/%s/configured", name);
-        this->itemsListDir[sizeof(this->itemsListDir) - 1] = '\0';
 
         if (!fs)
         {
             if (result)
-                strcpy(result, "File system is null");
+                strncpy(result, "File system is null", 128);
             return false;
         }
 
@@ -107,7 +114,7 @@ public:
         if (!fs->mounted())
         {
             if (result)
-                strcpy(result, "File system is not mounted");
+                strncpy(result, "File system is not mounted", 128);
             return false;
         }
 
@@ -116,7 +123,7 @@ public:
             if (!fs->mkdir(dir))
             {
                 if (result)
-                    strcpy(result, "Failed to create config directory");
+                    strncpy(result, "Failed to create config directory", 128);
                 return false;
             }
         }
@@ -124,7 +131,7 @@ public:
             itemCount = readFile(itemsListDir);
 
         if (result)
-            strcpy(result, "Successfully initialized config scope!");
+            strncpy(result, "Successfully initialized config scope!", 128);
 
         initialized = true;
         return true;
@@ -135,32 +142,40 @@ public:
         if (!initialized)
         {
             if (result)
-                strcpy(result, "Config scope not initialized");
+                strncpy(result, "Config scope not initialized", 128);
             return false;
         }
 
         if (!fs)
         {
             if (result)
-                strcpy(result, "File system is null");
+                strncpy(result, "File system is null", 128);
             return false;
         }
 
         if (!key || !value)
         {
             if (result)
-                strcpy(result, "Null pointers were passed to ConfigScope.set()");
+                strncpy(result, "Null pointers were passed to ConfigScope.set()", 128);
             return false;
         }
 
         char path[128];
         snprintf(path, sizeof(path), "%s/%s", dir, key);
 
+        const char *previousValue = get(key);
+        if (previousValue && strcmp(value, previousValue) == 0)
+        {
+            if (result)
+                strncpy(result, "Didn't need to change the value on the file system!", 128);
+            return true;
+        }
+
         IFile *file = fs->open(path, FileMode::Write);
         if (!file)
         {
             if (result)
-                strcpy(result, "Failed to open config file for writing");
+                strncpy(result, "Failed to open config file for writing", 128);
             return false;
         }
 
@@ -171,14 +186,14 @@ public:
         if (written != strlen(value))
         {
             if (result)
-                sprintf(result, "Failed to write complete value to config file: %s/%s", path, key);
+                snprintf(result, 128, "Failed to write complete value to config file: %s/%s", path, key);
 
             return false;
         }
 
         if (!addItem(key, itemsListDir))
             if (result)
-                sprintf(result, "Failed to write key to configured itms: %s", key);
+                snprintf(result, 128, "Failed to write key to configured itms: %s", key);
 
         return true;
     }
@@ -188,21 +203,21 @@ public:
         if (!initialized)
         {
             if (result)
-                strcpy(result, "Config scope not initialized");
+                strncpy(result, "Config scope not initialized", 128);
             return false;
         }
-        
+
         if (!fs)
         {
             if (result)
-                strcpy(result, "File system is null");
+                strncpy(result, "File system is null", 128);
             return false;
         }
 
         if (!value)
         {
             if (result)
-                strcpy(result, "Null pointers were passed to ConfigScope.get()");
+                strncpy(result, "Null pointers were passed to ConfigScope.get()", 128);
             return false;
         }
 
@@ -213,7 +228,7 @@ public:
         if (!file)
         {
             if (result)
-                sprintf(result, "Failed to open config file for reading: %s", path);
+                snprintf(result, 128, "Failed to open config file for reading: %s", path);
             return false;
         }
 
@@ -225,7 +240,7 @@ public:
         if (bytesRead == 0 && !fs->exists(path))
         {
             if (result)
-                strcpy(result, "Config file does not exist");
+                strncpy(result, "Config file does not exist", 128);
             return false;
         }
 
@@ -245,14 +260,14 @@ public:
         if (!initialized)
         {
             if (result)
-                strcpy(result, "Config scope not initialized");
+                strncpy(result, "Config scope not initialized", 128);
             return false;
         }
 
         if (!keys)
         {
             if (result)
-                strcpy(result, "Null pointers were passed to ConfigScope.set()");
+                strncpy(result, "Null pointers were passed to ConfigScope.set()", 128);
             return false;
         }
 

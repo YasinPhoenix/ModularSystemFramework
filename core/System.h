@@ -288,7 +288,7 @@ public:
         xTaskCreatePinnedToCore(
             updateTask,
             "ModuleUpdateTask",
-            4096,
+            8192,
             this,
             1,
             &updateTaskHandle,

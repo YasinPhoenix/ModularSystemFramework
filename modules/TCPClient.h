@@ -29,23 +29,85 @@ public:
 
     bool init(System *sys) override
     {
+        if (!sys)
+        {
+            LOG_ERROR(sys, "System wasn't given at module initiation!", SRC_WIFI);
+            return false;
+        }
+
         this->sys = sys;
+
+        char result[128];
+        configAvailable = scope.init(name(), sys->getFileSystem(), result);
+        LOGF(sys, SRC_SERIAL, LOG_DEBUG, LOG_COLOR_MAGENTA, "Config scope initialization result: %s\n", result);
+
+        loadConfig();
+
         mutex = xSemaphoreCreateRecursiveMutex();
-        return mutex != NULL;
+        if (mutex == NULL)
+        {
+            LOG_ERROR(sys, "Failed to initiate: mutex is NULL!", SRC_TCP);
+            return false;
+        }
+
+        return true;
     }
 
-    void setServer(const char *host, uint16_t port = 9000)
+    bool setServer(const char *host, uint16_t port = 9000)
     {
+        if (!host)
+        {
+            LOG_ERROR(sys, "Failed to set server: No host address was given!", SRC_TCP);
+            return false;
+        }
+
+        if (strlen(host) > 16)
+            LOG_WARN(sys, "Loaded value from config for host address is bigger than expected!", SRC_TCP);
+
         strncpy(this->host, host, sizeof(this->host) - 1);
         this->host[sizeof(this->host) - 1] = '\0';
 
-        this->port = port;
+        char result[128];
+        if (!scope.set("address", host, result))
+            LOGF(sys, SRC_TCP, LOG_ERROR, LOG_COLOR_RED, "Failed to save address: %s", result);
+
+        if (!updatePort(port, true))
+            return false;
 
         LOGF(sys, SRC_TCP, LOG_DEBUG, LOG_COLOR_CYAN, "TCPClient configured with HOST: %s:%d\n",
              this->host, this->port);
 
         configured = true;
+        return true;
     }
+
+    bool updatePort(uint16_t port, bool fromSetServer = false)
+    {
+        if (!configured && !fromSetServer)
+            LOG_WARN(sys, "The host address needs to be set!", SRC_TCP);
+
+        if (port == 0)
+        {
+            LOG_ERROR(sys, "Failed to update port: Invalid port number!", SRC_TCP);
+            return false;
+        }
+
+        this->port = port;
+
+        char result[128];
+        char intBuffer[6];
+
+        snprintf(intBuffer, sizeof(intBuffer), "%u", port);
+
+        if (!scope.set("port", intBuffer, result))
+            LOGF(sys, SRC_TCP, LOG_ERROR, LOG_COLOR_RED, "Failed to save port: %s", result);
+
+        LOGF(sys, SRC_TCP, LOG_DEBUG, LOG_COLOR_CYAN, "TCPClient port updated to %d", port);
+        return true;
+    }
+
+    // I want to make it so there are two commands for connection and disconnection and if the last used one between connect or
+    // disconnect was connect the auto reconnect then kicks in if for some reason it got disconnected
 
     void update() override
     {
@@ -57,15 +119,6 @@ public:
 
         if (isConnected())
         {
-            if (!commandsSent)
-            {
-                commandsSent = true;
-                while (sendCommands())
-                {
-                    vTaskDelay(10); // Small delay to avoid flooding
-                }
-            }
-
             handleIncoming();
             if (millis() - lastPing > keepAlive)
             {
@@ -73,10 +126,10 @@ public:
                 disconnect();
             }
         }
-        else
-            commandsSent = false;
-
-        reconnect();
+        else if (autoConnect)
+        {
+            reconnect();
+        }
     }
 
     void onEvent(const Event &e) override
@@ -99,12 +152,27 @@ public:
 
     void setDeviceName(const char *name)
     {
+        if (strlen(name) > sizeof(deviceName))
+            LOG_WARN(sys, "Loaded value from config for device name is bigger than expected!", SRC_TCP);
+
         strncpy(deviceName, name, sizeof(deviceName) - 1);
         deviceName[sizeof(deviceName) - 1] = '\0';
         isNameSet = true;
     }
 
-    void setKeepAlive(uint16_t milliseconds) { keepAlive = milliseconds; }
+    bool setKeepAlive(uint16_t ka)
+    {
+        if (ka < 5000)
+        {
+            LOG_ERROR(sys, "Keep-alive number invalid! (must be 5000 or above)", SRC_TCP);
+            return false;
+        }
+
+        keepAlive = ka;
+        return true;
+    }
+
+    void setAutoConnect(bool enable) { autoConnect = enable; }
 
     bool networkAvailable() { return WiFi.isConnected(); }
 
@@ -127,12 +195,13 @@ public:
 
 private:
     // =============== VARIABLES ===============
-    System *sys;
+    ConfigScope scope;
+    bool configAvailable = false;
 
     // Connection state
     bool configured = false;
     uint32_t lastAttempt = 0;
-    bool commandsSent = false;
+    bool autoConnect = false;
 
     // Ping timings
     uint32_t lastPing = 0;
@@ -164,8 +233,12 @@ private:
     SemaphoreHandle_t mutex = NULL;
 
     // =============== COMMANDS ===============
-    static CommandResult setServer(void *ctx, const Command &cmd)
+
+    static CommandResult CmdSetServer(void *ctx, const Command &cmd)
     {
+        if (!ctx)
+            return {false, "Context is null!"};
+
         TCPClient *tcp = static_cast<TCPClient *>(ctx);
 
         if (cmd.argumentCount < 1)
@@ -177,12 +250,16 @@ private:
         if (cmd.argumentCount >= 2)
             port = atoi(cmd.arg(1));
 
-        tcp->setServer(host, port);
-        return {true, "TCP server configured"};
+        bool success = tcp->setServer(host, port);
+
+        return {success, success ? "TCP server configured!" : "Failed to configure TCP server!"};
     }
 
-    static CommandResult setDeviceName(void *ctx, const Command &cmd)
+    static CommandResult CmdSetDeviceName(void *ctx, const Command &cmd)
     {
+        if (!ctx)
+            return {false, "Context is null!"};
+
         TCPClient *tcp = static_cast<TCPClient *>(ctx);
 
         if (cmd.argumentCount < 1)
@@ -192,28 +269,176 @@ private:
         return {true, "Device name set"};
     }
 
-    static CommandResult setKeepAlive(void *ctx, const Command &cmd)
+    static CommandResult CmdSetKeepAlive(void *ctx, const Command &cmd)
     {
+        if (!ctx)
+            return {false, "Context is null!"};
+
         TCPClient *tcp = static_cast<TCPClient *>(ctx);
 
         if (cmd.argumentCount < 1)
             return {false, "Missing argument: keep-alive timeout"};
 
         uint16_t timeout = atoi(cmd.arg(0));
-        tcp->setKeepAlive(timeout);
-        return {true, "Keep-alive timeout set"};
+        if (tcp->setKeepAlive(timeout))
+        {
+            return {true, "Keep-alive timeout set!"};
+        }
+        else
+        {
+            return {false, "Failed to set Keep-alive!"};
+        }
+    }
+
+    static CommandResult CmdConnect(void *ctx, const Command &cmd)
+    {
+        if (!ctx)
+            return {false, "Context is null!"};
+
+        TCPClient *tcp = static_cast<TCPClient *>(ctx);
+
+        if (tcp->isConnected())
+        {
+            return {true, "Already connected!"};
+        }
+
+        tcp->setAutoConnect(true);
+        return {true, "Auto-connect enabled. Attempting to connect..."};
+    }
+
+    static CommandResult CmdDisconnect(void *ctx, const Command &cmd)
+    {
+        if (!ctx)
+            return {false, "Context is null!"};
+
+        TCPClient *tcp = static_cast<TCPClient *>(ctx);
+
+        tcp->setAutoConnect(false);
+
+        if (!tcp->isConnected())
+        {
+            return {true, "Already disconnected!"};
+        }
+
+        tcp->disconnect();
+        return {true, "Disconnected from server!"};
     }
 
     static constexpr ModuleCommand moduleCommands[] = {
-        {"setServer", "Set the TCP server address and port <IP Address> [port=9000]", setServer},
-        {"setDeviceName", "Set the device name for IDENTIFY message <name>", setDeviceName},
-        {"setKeepAlive", "Set the keep-alive timeout in milliseconds <keep-alive=10000>", setKeepAlive}};
+        {"setServer", "Set the TCP server address and port <IP Address> [port=9000]", CmdSetServer},
+        {"setDeviceName", "Set the device name for IDENTIFY message <name>", CmdSetDeviceName},
+        {"setKeepAlive", "Set the keep-alive timeout in milliseconds <keep-alive=10000>", CmdSetKeepAlive},
+        {"connect", "Connect to the TCP server and enable auto-reconnect", CmdConnect},
+        {"disconnect", "Disconnect from the TCP server and disable auto-reconnect", CmdDisconnect}};
+
+    // =============== CONFIG ===============
+
+    static void applyHost(void *ctx, const char *value)
+    {
+        if (!ctx || !value)
+            return;
+
+        TCPClient *tcp = static_cast<TCPClient *>(ctx);
+
+        LOGF(tcp->sys, SRC_TCP, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded host address from config: %s", value);
+
+        tcp->setServer(value);
+    }
+
+    static void applyPort(void *ctx, const char *value)
+    {
+        if (!ctx || !value)
+            return;
+
+        TCPClient *tcp = static_cast<TCPClient *>(ctx);
+
+        LOGF(tcp->sys, SRC_TCP, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded port from config: %s", value);
+
+        tcp->updatePort(atoi(value));
+    }
+
+    static void applyDeviceName(void *ctx, const char *value)
+    {
+        if (!ctx || !value)
+            return;
+
+        TCPClient *tcp = static_cast<TCPClient *>(ctx);
+
+        LOGF(tcp->sys, SRC_TCP, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded device name from config: %s", value);
+
+        tcp->setDeviceName(value);
+    }
+
+    static void applyKeepAlive(void *ctx, const char *value)
+    {
+        if (!ctx || !value)
+            return;
+
+        TCPClient *tcp = static_cast<TCPClient *>(ctx);
+
+        LOGF(tcp->sys, SRC_TCP, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded keep-alive from config: %s", value);
+
+        tcp->setKeepAlive(atoi(value));
+    }
+
+    static void applyAutoConnect(void *ctx, const char *value)
+    {
+        if (!ctx || !value)
+            return;
+
+        TCPClient *tcp = static_cast<TCPClient *>(ctx);
+
+        LOGF(tcp->sys, SRC_TCP, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded auto-connect from config: %s", value);
+
+        tcp->setAutoConnect(atoi(value) != 0);
+    }
+
+    bool loadConfig()
+    {
+        if (!configAvailable)
+            return false;
+
+        const ConfigField fields[] = {
+            {"address", applyHost},
+            {"port", applyPort},
+            {"deviceName", applyDeviceName},
+            {"keepAlive", applyKeepAlive}};
+
+        uint8_t availableCount = 0;
+
+        for (const auto &field : fields)
+        {
+            for (const char *item : scope.items)
+            {
+                if (item[0] == '\0') // skip empty entries
+                    continue;
+
+                if (strcmp(field.key, item) == 0)
+                {
+                    const char *value = scope.get(field.key);
+                    field.apply(this, value);
+
+                    availableCount++;
+                    break;
+                }
+            }
+        }
+
+        if (!availableCount)
+            LOG_WARN(sys, "No TCP configurations available!", SRC_TCP);
+
+        return true;
+    }
 
     // =============== FUNCTIONS ===============
-    void reconnect()
+
+    bool reconnect()
     {
         if (!networkAvailable())
-            return;
+        {
+            LOG_ERROR(sys, "Network unavailable. Cannot reconnect!", SRC_TCP);
+            return false;
+        }
 
         uint32_t now = millis();
         // Attempt to reconnect if disconnected (every 10 seconds)
@@ -232,14 +457,24 @@ private:
             if (ok)
             {
                 sendIdentifyMessage();
+
+                while (sendCommands())
+                {
+                    vTaskDelay(10); // Small delay to avoid flooding
+                }
+
                 lastPing = millis();
                 LOGF(sys, SRC_TCP, LOG_INFO, LOG_COLOR_CYAN, "TCPClient connected at %lu! MAC: %s", lastPing, macAddress);
+                return true;
             }
             else
             {
-                LOG(sys, "TCPClient connection failed!", SRC_TCP, LOG_ERROR, LOG_COLOR_RED);
+                LOG_ERROR(sys, "TCPClient connection failed!", SRC_TCP);
+                return false;
             }
         }
+        LOGF(sys, SRC_TCP, LOG_DEBUG, LOG_COLOR_CYAN, "TCPClient reconnect attempt skipped. Last attempt was %lu ms ago.", now - lastAttempt);
+        return false;
     }
 
     void handleIncoming()
@@ -367,7 +602,6 @@ private:
                      "TYPE:COMMANDS|MAC:%s|MODULE_NAME:%s|COMMAND_NAME:%s|HELP:%s",
                      macAddress, info.moduleName, info.name, info.help ? info.help : "");
 
-
             LOGF(sys, SRC_TCP, LOG_DEBUG, LOG_COLOR_CYAN, "Sending command info: %s", buffer);
 
             LockGuard lock(mutex);
@@ -376,11 +610,9 @@ private:
             index++;
             return true;
         }
-        else
-        {
-            index = 0; // Reset for next time
-            return false;
-        }
+
+        index = 0; // Reset for next time
+        return false;
     }
 
     void sendPong()
