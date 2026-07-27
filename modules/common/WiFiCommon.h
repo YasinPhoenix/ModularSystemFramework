@@ -1,15 +1,13 @@
 #pragma once
 
-enum class WiFiMode
-{
+enum class WiFiMode {
     STA,
     AP,
     AP_STA,
     OFF
 };
 
-enum class WiFiConnectionState
-{
+enum class WiFiConnectionState {
     OFF,
     CONNECTED,
     CONNECTING,
@@ -20,8 +18,7 @@ enum class WiFiConnectionState
 #define WIFI_PASS_MAX_LEN 32
 #define WIFI_PASS_MIN_LEN 8
 
-struct WiFiConfig
-{
+struct WiFiConfig {
     WiFiMode mode = WiFiMode::OFF;
 
     char staSsid[WIFI_SSID_MAX_LEN + 1]{};
@@ -33,10 +30,8 @@ struct WiFiConfig
     bool hasStaCred() const { return staSsid[0] != '\0'; }
     bool hasApCred() const { return apSsid[0] != '\0'; }
 
-    bool setMode(uint8_t mode)
-    {
-        switch (mode)
-        {
+    bool setMode(uint8_t mode) {
+        switch (mode) {
         case 0:
             this->mode = WiFiMode::STA;
             return true;
@@ -52,10 +47,8 @@ struct WiFiConfig
         }
     }
 
-    int8_t getMode() const
-    {
-        switch (mode)
-        {
+    int8_t getMode() const {
+        switch (mode) {
         case WiFiMode::STA:
             return 0;
         case WiFiMode::AP:
@@ -67,10 +60,8 @@ struct WiFiConfig
         }
     }
 
-    const char *getModeStr(bool num = false)
-    {
-        switch (mode)
-        {
+    const char *getModeStr(bool num = false) {
+        switch (mode) {
         case WiFiMode::STA:
             return num ? "0" : "STA";
         case WiFiMode::AP:
@@ -82,8 +73,7 @@ struct WiFiConfig
         }
     }
 
-    bool operator==(const WiFiConfig &rhs) const
-    {
+    bool operator==(const WiFiConfig &rhs) const {
         return mode == rhs.mode &&
                strcmp(staSsid, rhs.staSsid) == 0 &&
                strcmp(staPass, rhs.staPass) == 0 &&
@@ -91,8 +81,7 @@ struct WiFiConfig
                strcmp(apPass, rhs.apPass) == 0;
     }
 
-    bool operator!=(const WiFiConfig &rhs) const
-    {
+    bool operator!=(const WiFiConfig &rhs) const {
         return !(*this == rhs);
     }
 };
