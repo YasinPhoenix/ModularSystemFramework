@@ -14,6 +14,12 @@ enum class WiFiConnectionState {
     DISCONNECTED
 };
 
+enum class WiFiStopTarget : uint8_t {
+    ALL,
+    STA,
+    AP
+};
+
 #define WIFI_SSID_MAX_LEN 32
 #define WIFI_PASS_MAX_LEN 32
 #define WIFI_PASS_MIN_LEN 8

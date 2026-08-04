@@ -31,7 +31,7 @@ public:
 
         wifiRetry.onExhaustedDo([this]() {
             LOG_ERROR(this->sys, "Max WiFi reconnection attempts reached. Reconnect aborted.", SRC_WIFI);
-            autoReconnect = false;
+            stop(WiFiStopTarget::STA);
         });
 
         wifiRetry.onAttemptFailedDo([this](uint8_t attempt) {
@@ -40,7 +40,7 @@ public:
 
         char result[128];
         configAvailable = scope.init(name(), sys->getFileSystem(), result);
-        LOGF(sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_MAGENTA, "Config scope initialization result: %s\n", result);
+        LOGF(sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_MAGENTA, "Config scope initialization result: %s", result);
 
         loadConfig();
 
@@ -57,7 +57,6 @@ public:
         } // released immediately after copying the value out
 
         if (currentState == WiFiConnectionState::DISCONNECTED && autoReconnect && staApplicable) {
-
             if (!wifiRetry.isArmed())
                 wifiRetry.arm();
             wifiRetry.update();
@@ -125,11 +124,11 @@ public:
         bool modeChanged = mode != appliedConfig.mode;
 
         if (!isModeValid(mode)) {
-            LOGF(sys, SRC_WIFI, LOG_ERROR, LOG_COLOR_RED, "WiFi mode invalid: %d\n", mode);
+            LOGF(sys, SRC_WIFI, LOG_ERROR, LOG_COLOR_RED, "WiFi mode invalid: %d", mode);
             return false;
         }
 
-        if (mode == appliedConfig.mode) {
+        if (!modeChanged) {
             LOG_INFO(sys, "WiFi mode didn't change!", SRC_WIFI, LOG_COLOR_CYAN);
             return true;
         }
@@ -145,51 +144,36 @@ public:
     inline void setAutoReconnect(bool enable) { autoReconnect = enable; }
 
     bool commence() {
-        // Nothing changed & still connected
         WiFiConnectionState currentState;
         {
             LockGuard lock(mutex);
             currentState = state;
-        } // released immediately after copying the value out
+        }
 
-        if (config == appliedConfig && currentState != WiFiConnectionState::DISCONNECTED) {
+        if (config == appliedConfig && currentState == WiFiConnectionState::CONNECTED) {
             LOG_INFO(sys, "No changes were made to WiFi!", SRC_WIFI, LOG_COLOR_CYAN);
             return true;
         }
 
-        // Getting the new mode
         wifi_mode_t newMode = WIFI_OFF;
-
         switch (config.mode) {
         case WiFiMode::STA:
             newMode = WIFI_STA;
             break;
-
         case WiFiMode::AP:
             newMode = WIFI_AP;
             break;
-
         case WiFiMode::AP_STA:
             newMode = WIFI_AP_STA;
             break;
         }
 
-        // Change it if needed
-        bool modeChanged = WiFi.getMode() != newMode;
-        if (modeChanged) {
-            if (!WiFi.mode(newMode)) {
-                LOG_ERROR(sys, "Failed to change WiFi mode", SRC_WIFI);
-                return false;
-            } else {
-                LOG_DEBUG(sys, "WiFi mode changed!", SRC_WIFI);
-            }
-        }
+        bool modeChanged = false;
+        if (!applyMode(newMode, modeChanged))
+            return false;
 
-        bool staDropped =
-            (config.mode != WiFiMode::STA && config.mode != WiFiMode::AP_STA) &&
-            (appliedConfig.mode == WiFiMode::STA ||
-             appliedConfig.mode == WiFiMode::AP_STA);
-
+        bool staDropped = (config.mode != WiFiMode::STA && config.mode != WiFiMode::AP_STA) &&
+                          (appliedConfig.mode == WiFiMode::STA || appliedConfig.mode == WiFiMode::AP_STA);
         if (staDropped) {
             LockGuard lock(mutex);
             state = WiFiConnectionState::DISCONNECTED;
@@ -197,94 +181,77 @@ public:
             staIp = IPAddress();
         }
 
-        // Reconfigure STA if needed
-        bool staChanged = strcmp(config.staSsid, appliedConfig.staSsid) != 0 ||
-                          strcmp(config.staPass, appliedConfig.staPass) != 0;
+        if (!applySta(modeChanged, currentState))
+            return false;
 
-        if ((config.mode == WiFiMode::STA || config.mode == WiFiMode::AP_STA) &&
-            (staChanged || modeChanged || currentState == WiFiConnectionState::DISCONNECTED)) {
-            if (!WiFi.disconnect(false, false)) {
-                LOG_ERROR(sys, "Failed to disconnect STA", SRC_WIFI);
-                return false;
-            } else if (currentState != WiFiConnectionState::DISCONNECTED) {
-                {
-                    LockGuard lock(mutex);
-                    staIp = IPAddress();
-                }
-                LOG_DEBUG(sys, "STA disconnected!", SRC_WIFI);
-            }
+        if (!applyAp(modeChanged))
+            return false;
 
-            if (config.hasStaCred()) {
-                WiFi.begin(config.staSsid, config.staPass);
-
-                {
-                    LockGuard lock(mutex);
-                    state = WiFiConnectionState::CONNECTING;
-                }
-                LOG_DEBUG(sys, "STA connecting...", SRC_WIFI);
-            }
-        }
-
-        // Reconfigure AP if needed
-
-        bool apChanged = strcmp(config.apSsid, appliedConfig.apSsid) != 0 ||
-                         strcmp(config.apPass, appliedConfig.apPass) != 0;
-
-        if ((config.mode == WiFiMode::AP || config.mode == WiFiMode::AP_STA) &&
-            (apChanged || modeChanged)) {
-            if (!WiFi.softAPdisconnect(true)) {
-                LOG_ERROR(sys, "Failed to disable AP", SRC_WIFI);
-                return false;
-            } else {
-                apIp = IPAddress();
-                LOG_DEBUG(sys, "AP disabled!", SRC_WIFI);
-            }
-
-            if (config.hasApCred())
-                if (!WiFi.softAP(config.apSsid, config.apPass)) {
-                    LOG_ERROR(sys, "Failed to enable AP", SRC_WIFI);
-                    return false;
-                } else {
-                    apIp = WiFi.softAPIP();
-                    LOG_DEBUG(sys, "Enabled AP!", SRC_WIFI);
-                }
-        }
-
-        // Save
-        appliedConfig = config;
+        appliedConfig.mode = config.mode;
         return true;
     }
 
-    bool stop() {
-        if (!WiFi.disconnect(false, false)) {
-            LOG_ERROR(sys, "Failed to disconnect STA", SRC_WIFI);
-            return false;
-        } else {
+    bool stop(WiFiStopTarget target = WiFiStopTarget::ALL) {
+        bool stopSta = (target == WiFiStopTarget::ALL || target == WiFiStopTarget::STA);
+        bool stopAp = (target == WiFiStopTarget::ALL || target == WiFiStopTarget::AP);
+
+        bool staWasActive = appliedConfig.mode == WiFiMode::STA || appliedConfig.mode == WiFiMode::AP_STA;
+        bool apWasActive = appliedConfig.mode == WiFiMode::AP || appliedConfig.mode == WiFiMode::AP_STA;
+
+        if (stopSta) {
+            if (!WiFi.disconnect(false, false)) {
+                LOG_ERROR(sys, "Failed to disconnect STA", SRC_WIFI);
+                return false;
+            }
             {
                 LockGuard lock(mutex);
+                state = WiFiConnectionState::OFF;
                 staIp = IPAddress();
             }
             LOG_DEBUG(sys, "Disconnected STA!", SRC_WIFI);
+            wifiRetry.disarm();
         }
 
-        if (!WiFi.softAPdisconnect(true)) {
-            LOG_ERROR(sys, "Failed to disable AP", SRC_WIFI);
-            return false;
-        } else {
-            apIp = IPAddress();
+        if (stopAp) {
+            if (!WiFi.softAPdisconnect(true)) {
+                LOG_ERROR(sys, "Failed to disable AP", SRC_WIFI);
+                return false;
+            }
+            {
+                LockGuard lock(mutex);
+                apIp = IPAddress();
+                clientCount = 0;
+            }
             LOG_DEBUG(sys, "Disconnected AP!", SRC_WIFI);
         }
 
-        if (!WiFi.mode(WIFI_OFF)) {
-            LOG_ERROR(sys, "Failed to turn off the WiFi", SRC_WIFI);
+        // Only keep a side alive if it was actually running AND we weren't told to stop it
+        bool staRemains = staWasActive && !stopSta;
+        bool apRemains = apWasActive && !stopAp;
+
+        wifi_mode_t newRadioMode = WIFI_OFF;
+        if (staRemains && apRemains)
+            newRadioMode = WIFI_AP_STA;
+        else if (staRemains)
+            newRadioMode = WIFI_STA;
+        else if (apRemains)
+            newRadioMode = WIFI_AP;
+
+        if (!WiFi.mode(newRadioMode)) {
+            LOG_ERROR(sys, "Failed to update WiFi mode after stop", SRC_WIFI);
             return false;
-        } else
+        }
+
+        if (staRemains)
+            appliedConfig.mode = WiFiMode::STA;
+        else if (apRemains)
+            appliedConfig.mode = WiFiMode::AP;
+        // if both stopped, appliedConfig.mode is left as-is (matches original full-stop behavior,
+        // since WiFiMode has no OFF value — actual radio state is tracked separately)
+
+        if (newRadioMode == WIFI_OFF)
             LOG_DEBUG(sys, "WiFi turned off!", SRC_WIFI);
 
-        wifiRetry.disarm();
-
-        LockGuard lock(mutex);
-        state = WiFiConnectionState::OFF;
         return true;
     }
 
@@ -326,6 +293,32 @@ public:
             LOGF(sys, SRC_WIFI, LOG_WARN, LOG_COLOR_YELLOW, "WiFi Disconnected! reason=%d", reason);
             break;
         }
+
+        case ARDUINO_EVENT_WIFI_AP_STACONNECTED: {
+            LockGuard lock(mutex);
+            clientCount++;
+            break;
+        }
+
+        case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED: {
+            LockGuard lock(mutex);
+            if (clientCount)
+                clientCount--;
+            break;
+        }
+
+        case ARDUINO_EVENT_WIFI_AP_STAIPASSIGNED: {
+            IPAddress ip(info.wifi_ap_staipassigned.ip.addr);
+
+            LOGF(sys, SRC_WIFI, LOG_INFO, LOG_COLOR_GREEN, "Client assigned IP: %s", ip.toString().c_str());
+            break;
+        }
+
+        case ARDUINO_EVENT_WIFI_AP_START: {
+            LockGuard lock(mutex);
+            apIp = WiFi.softAPIP();
+            break;
+        }
         }
     }
 
@@ -340,13 +333,20 @@ public:
     }
 
     inline WiFiMode getMode() const { return appliedConfig.mode; }
-    inline uint8_t getClientCount() { return clientCount; }
+
+    inline uint8_t getClientCount() const {
+        LockGuard lock(mutex);
+        return clientCount;
+    }
     inline IPAddress getStaIp() const {
         LockGuard lock(mutex);
         return staIp;
     }
 
-    inline IPAddress getApIp() const { return apIp; }
+    inline IPAddress getApIp() const {
+        LockGuard lock(mutex);
+        return apIp;
+    }
 
     WiFiConfig getConfig() const {
         WiFiConfig newConfig = config;
@@ -358,13 +358,19 @@ public:
 
 private:
     // =============== VARIABLES ===============
+    /*
+        There are only a few of the variables are currently protected by the
+        mutex handling and are marked as [MUTEX-PROTECTED]. The rest are not
+        meant to be read/written on multiple tasks.
+     */
+
     ConfigScope scope;
     bool configAvailable = false;
 
-    WiFiConnectionState state = WiFiConnectionState::OFF;
+    WiFiConnectionState state = WiFiConnectionState::OFF; // [MUTEX-PROTECTED]
 
-    IPAddress staIp;
-    IPAddress apIp;
+    IPAddress staIp; // [MUTEX-PROTECTED]
+    IPAddress apIp;  // [MUTEX-PROTECTED]
 
     SemaphoreHandle_t mutex;
 
@@ -374,7 +380,7 @@ private:
 
     RetryManager wifiRetry;
 
-    uint8_t clientCount = 0;
+    uint8_t clientCount = 0; // [MUTEX-PROTECTED]
     bool hasClientCountChanged = false;
 
     WiFiConfig config;
@@ -466,10 +472,16 @@ private:
 
         MyWiFiClient *wifi = static_cast<MyWiFiClient *>(ctx);
 
-        if (cmd.argumentCount)
-            LOG_WARN(wifi->sys, "WiFi stop doesn't accept any arguments! Arguments ignored...", SRC_WIFI);
+        if (cmd.argumentCount < 1)
+            LOG_WARN(wifi->sys, "WiFi stop prefers a target argument! Stopping all interfaces...", SRC_WIFI);
 
-        bool success = wifi->stop();
+        int targetVal = cmd.argumentCount != 0 ? atoi(cmd.arg(0)) : 0;
+        if (targetVal < 0 || targetVal > 2)
+            return {false, "Invalid target. Must be 0 (ALL), 1 (STA), or 2 (AP)"};
+
+        WiFiStopTarget target = cmd.argumentCount != 0 ? static_cast<WiFiStopTarget>(targetVal) : WiFiStopTarget::ALL;
+
+        bool success = wifi->stop(target);
         return {success, success ? "WiFi successfully stopped!" : "Failed to stop WiFi"};
     }
 
@@ -478,7 +490,7 @@ private:
             return {false, "Context is null!"};
 
         MyWiFiClient *wifi = static_cast<MyWiFiClient *>(ctx);
-        LOGF(wifi->sys, SRC_WIFI, LOG_INFO, LOG_COLOR_MAGENTA, "AP client count: %d\n", wifi->getClientCount());
+        LOGF(wifi->sys, SRC_WIFI, LOG_INFO, LOG_COLOR_MAGENTA, "AP client count: %d", wifi->getClientCount());
         return {true, "Success"};
     }
 
@@ -503,7 +515,7 @@ private:
         {"setMode", "Set WiFi mode <0=STA|1=AP|2=AP+STA>", CMDSetMode},
         {"setAutoReconnect", "Set WiFi auto reconnect <0=OFF|1=ON>", CMDSetAutoReconnect},
         {"commence", "Commence WiFi network", CMDCommence},
-        {"stop", "Stop WiFi module", CMDStop},
+        {"stop", "Stop WiFi module [0=ALL|1=STA|2=AP]", CMDStop},
         {"clientCount", "Get AP client count", CMDGetClientCount},
         {"getConfig", "Get saved configuration!", CMDGetConfig},
     };
@@ -597,6 +609,84 @@ private:
     }
 
     // =============== FUNCTIONS ===============
+    bool applyMode(wifi_mode_t newMode, bool &modeChanged) {
+        modeChanged = WiFi.getMode() != newMode;
+        if (!modeChanged)
+            return true;
+
+        if (!WiFi.mode(newMode)) {
+            LOG_ERROR(sys, "Failed to change WiFi mode", SRC_WIFI);
+            return false;
+        }
+        LOG_DEBUG(sys, "WiFi mode changed!", SRC_WIFI);
+        return true;
+    }
+
+    bool applySta(bool modeChanged, WiFiConnectionState currentState) {
+        bool staChanged = strcmp(config.staSsid, appliedConfig.staSsid) != 0 ||
+                          strcmp(config.staPass, appliedConfig.staPass) != 0;
+        bool staApplicable = config.mode == WiFiMode::STA || config.mode == WiFiMode::AP_STA;
+
+        if (!staApplicable || !(staChanged || modeChanged || currentState == WiFiConnectionState::DISCONNECTED))
+            return true; // nothing to do here — not a failure
+
+        if (!WiFi.disconnect(false, false)) {
+            LOG_ERROR(sys, "Failed to disconnect STA", SRC_WIFI);
+            return false;
+        }
+        if (currentState != WiFiConnectionState::DISCONNECTED) {
+            LockGuard lock(mutex);
+            staIp = IPAddress();
+        }
+
+        if (config.hasStaCred()) {
+            WiFi.begin(config.staSsid, config.staPass);
+            LockGuard lock(mutex);
+            state = WiFiConnectionState::CONNECTING;
+        }
+
+        // this section succeeded — commit just the STA half
+        strncpy(appliedConfig.staSsid, config.staSsid, WIFI_SSID_MAX_LEN);
+        appliedConfig.staSsid[WIFI_SSID_MAX_LEN] = '\0';
+        strncpy(appliedConfig.staPass, config.staPass, WIFI_PASS_MAX_LEN);
+        appliedConfig.staPass[WIFI_PASS_MAX_LEN] = '\0';
+        return true;
+    }
+
+    bool applyAp(bool modeChanged) {
+        bool apChanged = strcmp(config.apSsid, appliedConfig.apSsid) != 0 ||
+                         strcmp(config.apPass, appliedConfig.apPass) != 0;
+        bool apApplicable = config.mode == WiFiMode::AP || config.mode == WiFiMode::AP_STA;
+
+        if (!apApplicable || !(apChanged || modeChanged))
+            return true;
+
+        if (!WiFi.softAPdisconnect(true)) {
+            LOG_ERROR(sys, "Failed to disable AP", SRC_WIFI);
+            return false;
+        }
+
+        {
+            LockGuard lock(mutex);
+            apIp = IPAddress();
+        }
+
+        if (config.hasApCred()) {
+            if (!WiFi.softAP(config.apSsid, config.apPass)) {
+                LOG_ERROR(sys, "Failed to enable AP", SRC_WIFI);
+                return false;
+            }
+            LockGuard lock(mutex);
+            apIp = WiFi.softAPIP();
+        }
+
+        strncpy(appliedConfig.apSsid, config.apSsid, WIFI_SSID_MAX_LEN);
+        appliedConfig.apSsid[WIFI_SSID_MAX_LEN] = '\0';
+        strncpy(appliedConfig.apPass, config.apPass, WIFI_PASS_MAX_LEN);
+        appliedConfig.apPass[WIFI_PASS_MAX_LEN] = '\0';
+        return true;
+    }
+
     bool isSsidValid(const char *ssid) {
         if (!ssid)
             return false;
