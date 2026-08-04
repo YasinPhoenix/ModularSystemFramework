@@ -1,9 +1,9 @@
 #pragma once
+#include "../core/System.h"
+#include "common/LockGuard.h"
 #include <WiFi.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
-#include "../core/System.h"
-#include "common/LockGuard.h"
 
 /**
  * Message Protocol (newline-delimited):
@@ -14,23 +14,19 @@
 
 #define TCP_CLIENT_MESSAGE_MAX_SIZE 128
 
-struct MessageField
-{
+struct MessageField {
     const char *key;
     const char *value;
 };
 
-class TCPClient : public IModule
-{
+class TCPClient : public IModule {
 public:
     const char *name() override { return "TCPClient"; }
 
     MODULE_COMMANDS();
 
-    bool init(System *sys) override
-    {
-        if (!sys)
-        {
+    bool init(System *sys) override {
+        if (!sys) {
             LOG_ERROR(sys, "System wasn't given at module initiation!", SRC_WIFI);
             return false;
         }
@@ -39,13 +35,12 @@ public:
 
         char result[128];
         configAvailable = scope.init(name(), sys->getFileSystem(), result);
-        LOGF(sys, SRC_SERIAL, LOG_DEBUG, LOG_COLOR_MAGENTA, "Config scope initialization result: %s\n", result);
+        LOGF(sys, SRC_TCP, LOG_DEBUG, LOG_COLOR_MAGENTA, "Config scope initialization result: %s\n", result);
 
         loadConfig();
 
         mutex = xSemaphoreCreateRecursiveMutex();
-        if (mutex == NULL)
-        {
+        if (mutex == NULL) {
             LOG_ERROR(sys, "Failed to initiate: mutex is NULL!", SRC_TCP);
             return false;
         }
@@ -53,10 +48,8 @@ public:
         return true;
     }
 
-    bool setServer(const char *host, uint16_t port = 9000)
-    {
-        if (!host)
-        {
+    bool setServer(const char *host, uint16_t port = 9000) {
+        if (!host) {
             LOG_ERROR(sys, "Failed to set server: No host address was given!", SRC_TCP);
             return false;
         }
@@ -81,13 +74,11 @@ public:
         return true;
     }
 
-    bool updatePort(uint16_t port, bool fromSetServer = false)
-    {
+    bool updatePort(uint16_t port, bool fromSetServer = false) {
         if (!configured && !fromSetServer)
             LOG_WARN(sys, "The host address needs to be set!", SRC_TCP);
 
-        if (port == 0)
-        {
+        if (port == 0) {
             LOG_ERROR(sys, "Failed to update port: Invalid port number!", SRC_TCP);
             return false;
         }
@@ -109,38 +100,29 @@ public:
     // I want to make it so there are two commands for connection and disconnection and if the last used one between connect or
     // disconnect was connect the auto reconnect then kicks in if for some reason it got disconnected
 
-    void update() override
-    {
+    void update() override {
         if (!configured)
             return;
 
         if (networkAvailable() && !macAddressSet)
             setMACAddress();
 
-        if (isConnected())
-        {
+        if (isConnected()) {
             handleIncoming();
-            if (millis() - lastPing > keepAlive)
-            {
+            if (millis() - lastPing > keepAlive) {
                 LOG(sys, "TCP client keep-alive timeout. Disconnecting...", SRC_TCP, LOG_DEBUG, LOG_COLOR_CYAN);
                 disconnect();
             }
-        }
-        else if (autoConnect)
-        {
+        } else if (autoConnect) {
             reconnect();
         }
     }
 
-    void onEvent(const Event &e) override
-    {
-        if (e.type == EVENT_TCP_SEND)
-        {
+    void onEvent(const Event &e) override {
+        if (e.type == EVENT_TCP_SEND) {
             const auto &data = e.data.tcpData;
             sendData(data.key, data.value);
-        }
-        else if (e.type == EVENT_LOG)
-        {
+        } else if (e.type == EVENT_LOG) {
             const auto &data = e.data.log;
             sendLog(data.level, data.message);
         }
@@ -150,8 +132,7 @@ public:
 
     uint32_t updateInterval() override { return 1000; }
 
-    void setDeviceName(const char *name)
-    {
+    void setDeviceName(const char *name) {
         if (strlen(name) > sizeof(deviceName))
             LOG_WARN(sys, "Loaded value from config for device name is bigger than expected!", SRC_TCP);
 
@@ -160,10 +141,8 @@ public:
         isNameSet = true;
     }
 
-    bool setKeepAlive(uint16_t ka)
-    {
-        if (ka < 5000)
-        {
+    bool setKeepAlive(uint16_t ka) {
+        if (ka < 5000) {
             LOG_ERROR(sys, "Keep-alive number invalid! (must be 5000 or above)", SRC_TCP);
             return false;
         }
@@ -174,17 +153,25 @@ public:
 
     void setAutoConnect(bool enable) { autoConnect = enable; }
 
+    void setMAC(const char *value) {
+        if (!value || value[0] == '\0') {
+            LOG_ERROR(sys, "Failed to set MAC address: Empty string was given!", SRC_TCP);
+            return;
+        }
+
+        snprintf(macAddress, sizeof(macAddress), value);
+        macAddressSet = true;
+    }
+
     bool networkAvailable() { return WiFi.isConnected(); }
 
-    bool isConnected()
-    {
+    bool isConnected() {
         LockGuard lock(mutex);
 
         return networkAvailable() && configured && client.connected();
     }
 
-    void disconnect()
-    {
+    void disconnect() {
         LockGuard lock(mutex);
 
         if (client.connected())
@@ -234,8 +221,7 @@ private:
 
     // =============== COMMANDS ===============
 
-    static CommandResult CmdSetServer(void *ctx, const Command &cmd)
-    {
+    static CommandResult CmdSetServer(void *ctx, const Command &cmd) {
         if (!ctx)
             return {false, "Context is null!"};
 
@@ -255,8 +241,7 @@ private:
         return {success, success ? "TCP server configured!" : "Failed to configure TCP server!"};
     }
 
-    static CommandResult CmdSetDeviceName(void *ctx, const Command &cmd)
-    {
+    static CommandResult CmdSetDeviceName(void *ctx, const Command &cmd) {
         if (!ctx)
             return {false, "Context is null!"};
 
@@ -269,8 +254,7 @@ private:
         return {true, "Device name set"};
     }
 
-    static CommandResult CmdSetKeepAlive(void *ctx, const Command &cmd)
-    {
+    static CommandResult CmdSetKeepAlive(void *ctx, const Command &cmd) {
         if (!ctx)
             return {false, "Context is null!"};
 
@@ -280,25 +264,20 @@ private:
             return {false, "Missing argument: keep-alive timeout"};
 
         uint16_t timeout = atoi(cmd.arg(0));
-        if (tcp->setKeepAlive(timeout))
-        {
+        if (tcp->setKeepAlive(timeout)) {
             return {true, "Keep-alive timeout set!"};
-        }
-        else
-        {
+        } else {
             return {false, "Failed to set Keep-alive!"};
         }
     }
 
-    static CommandResult CmdConnect(void *ctx, const Command &cmd)
-    {
+    static CommandResult CmdConnect(void *ctx, const Command &cmd) {
         if (!ctx)
             return {false, "Context is null!"};
 
         TCPClient *tcp = static_cast<TCPClient *>(ctx);
 
-        if (tcp->isConnected())
-        {
+        if (tcp->isConnected()) {
             return {true, "Already connected!"};
         }
 
@@ -306,8 +285,7 @@ private:
         return {true, "Auto-connect enabled. Attempting to connect..."};
     }
 
-    static CommandResult CmdDisconnect(void *ctx, const Command &cmd)
-    {
+    static CommandResult CmdDisconnect(void *ctx, const Command &cmd) {
         if (!ctx)
             return {false, "Context is null!"};
 
@@ -315,8 +293,7 @@ private:
 
         tcp->setAutoConnect(false);
 
-        if (!tcp->isConnected())
-        {
+        if (!tcp->isConnected()) {
             return {true, "Already disconnected!"};
         }
 
@@ -333,8 +310,7 @@ private:
 
     // =============== CONFIG ===============
 
-    static void applyHost(void *ctx, const char *value)
-    {
+    static void applyHost(void *ctx, const char *value) {
         if (!ctx || !value)
             return;
 
@@ -345,8 +321,7 @@ private:
         tcp->setServer(value);
     }
 
-    static void applyPort(void *ctx, const char *value)
-    {
+    static void applyPort(void *ctx, const char *value) {
         if (!ctx || !value)
             return;
 
@@ -357,8 +332,7 @@ private:
         tcp->updatePort(atoi(value));
     }
 
-    static void applyDeviceName(void *ctx, const char *value)
-    {
+    static void applyDeviceName(void *ctx, const char *value) {
         if (!ctx || !value)
             return;
 
@@ -369,8 +343,7 @@ private:
         tcp->setDeviceName(value);
     }
 
-    static void applyKeepAlive(void *ctx, const char *value)
-    {
+    static void applyKeepAlive(void *ctx, const char *value) {
         if (!ctx || !value)
             return;
 
@@ -381,8 +354,7 @@ private:
         tcp->setKeepAlive(atoi(value));
     }
 
-    static void applyAutoConnect(void *ctx, const char *value)
-    {
+    static void applyAutoConnect(void *ctx, const char *value) {
         if (!ctx || !value)
             return;
 
@@ -393,8 +365,18 @@ private:
         tcp->setAutoConnect(atoi(value) != 0);
     }
 
-    bool loadConfig()
-    {
+    static void applyMAC(void *ctx, const char *value) {
+        if (!ctx || !value)
+            return;
+
+        TCPClient *tcp = static_cast<TCPClient *>(ctx);
+
+        LOGF(tcp->sys, SRC_TCP, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded MAC from config: %s", value);
+
+        tcp->setMAC(value);
+    }
+
+    bool loadConfig() {
         if (!configAvailable)
             return false;
 
@@ -402,19 +384,17 @@ private:
             {"address", applyHost},
             {"port", applyPort},
             {"deviceName", applyDeviceName},
-            {"keepAlive", applyKeepAlive}};
+            {"keepAlive", applyKeepAlive},
+            {"MAC", applyMAC}};
 
         uint8_t availableCount = 0;
 
-        for (const auto &field : fields)
-        {
-            for (const char *item : scope.items)
-            {
+        for (const auto &field : fields) {
+            for (const char *item : scope.items) {
                 if (item[0] == '\0') // skip empty entries
                     continue;
 
-                if (strcmp(field.key, item) == 0)
-                {
+                if (strcmp(field.key, item) == 0) {
                     const char *value = scope.get(field.key);
                     field.apply(this, value);
 
@@ -432,18 +412,15 @@ private:
 
     // =============== FUNCTIONS ===============
 
-    bool reconnect()
-    {
-        if (!networkAvailable())
-        {
+    bool reconnect() {
+        if (!networkAvailable()) {
             LOG_ERROR(sys, "Network unavailable. Cannot reconnect!", SRC_TCP);
             return false;
         }
 
         uint32_t now = millis();
         // Attempt to reconnect if disconnected (every 10 seconds)
-        if (!isConnected() && now - lastAttempt > 10000)
-        {
+        if (!isConnected() && now - lastAttempt > 10000) {
             lastAttempt = now;
 
             LOGF(sys, SRC_TCP, LOG_INFO, LOG_COLOR_CYAN, "Attempting to connect to %s:%d...", host, port);
@@ -454,21 +431,17 @@ private:
                 ok = client.connect(host, port);
             }
 
-            if (ok)
-            {
+            if (ok) {
                 sendIdentifyMessage();
 
-                while (sendCommands())
-                {
+                while (sendCommands()) {
                     vTaskDelay(10); // Small delay to avoid flooding
                 }
 
                 lastPing = millis();
                 LOGF(sys, SRC_TCP, LOG_INFO, LOG_COLOR_CYAN, "TCPClient connected at %lu! MAC: %s", lastPing, macAddress);
                 return true;
-            }
-            else
-            {
+            } else {
                 LOG_ERROR(sys, "TCPClient connection failed!", SRC_TCP);
                 return false;
             }
@@ -477,17 +450,14 @@ private:
         return false;
     }
 
-    void handleIncoming()
-    {
-        while (true)
-        {
+    void handleIncoming() {
+        while (true) {
             bool hasByte = false;
             char c = 0;
 
             {
                 LockGuard lock(mutex);
-                if (client.available())
-                {
+                if (client.available()) {
                     c = client.read();
                     hasByte = true;
                 }
@@ -496,25 +466,20 @@ private:
             if (!hasByte)
                 break;
 
-            if (c == '\n')
-            {
+            if (c == '\n') {
                 rxBuffer[rxPos] = '\0';
                 processMessage(rxBuffer);
                 rxPos = 0;
 
                 LOGF(sys, SRC_TCP, LOG_DEBUG, LOG_COLOR_CYAN, "TCPClient received: %s", rxBuffer);
-            }
-            else if (rxPos < sizeof(rxBuffer) - 1)
-            {
+            } else if (rxPos < sizeof(rxBuffer) - 1) {
                 rxBuffer[rxPos++] = c;
             }
         }
     }
 
-    const char *findField(const MessageField *fields, int count, const char *key)
-    {
-        for (int i = 0; i < count; ++i)
-        {
+    const char *findField(const MessageField *fields, int count, const char *key) {
+        for (int i = 0; i < count; ++i) {
             if (strcmp(fields[i].key, key) == 0)
                 return fields[i].value;
         }
@@ -522,8 +487,7 @@ private:
         return nullptr;
     }
 
-    void processMessage(const char *msg)
-    {
+    void processMessage(const char *msg) {
         char buffer[256];
         strncpy(buffer, msg, sizeof(buffer) - 1);
         buffer[sizeof(buffer) - 1] = '\0';
@@ -533,12 +497,10 @@ private:
 
         char *token = strtok(buffer, "|");
 
-        while (token && count < 10)
-        {
+        while (token && count < 10) {
             char *colon = strchr(token, ':');
 
-            if (colon)
-            {
+            if (colon) {
                 *colon = '\0';
                 fields[count++] = {token, colon + 1};
             }
@@ -548,55 +510,42 @@ private:
 
         const char *type = findField(fields, count, "TYPE");
 
-        if (!type)
-        {
+        if (!type) {
             LOG(sys, "Message missing TYPE field", SRC_TCP, LOG_ERROR, LOG_COLOR_RED);
             return;
         }
 
-        if (strcmp(type, "PING") == 0)
-        {
+        if (strcmp(type, "PING") == 0) {
             lastPing = millis();
             sendPong();
-        }
-        else if (strcmp(type, "EXECUTE") == 0)
-        {
+        } else if (strcmp(type, "EXECUTE") == 0) {
             const char *mac = findField(fields, count, "MAC");
 
-            if (mac && strcmp(mac, macAddress) == 0)
-            {
+            if (mac && strcmp(mac, macAddress) == 0) {
                 const char *cmd = findField(fields, count, "COMMAND");
 
-                if (!cmd)
-                {
+                if (!cmd) {
                     LOG(sys, "EXECUTE message missing COMMAND field", SRC_TCP, LOG_ERROR, LOG_COLOR_RED);
                     return;
                 }
 
                 auto result = sys->executeCommand(cmd);
-                if (result.success)
-                {
+                if (result.success) {
                     LOGF(sys, SRC_SERIAL, LOG_DEBUG, LOG_COLOR_GREEN, "Command executed successfully: %s", result.message);
-                }
-                else
-                {
+                } else {
                     LOGF(sys, SRC_SERIAL, LOG_ERROR, LOG_COLOR_RED, "Command execution failed: %s", result.message);
                 }
             }
-        }
-        else
-        {
+        } else {
             LOGF(sys, SRC_TCP, LOG_WARN, LOG_COLOR_YELLOW, "Unknown message type: %s", type);
         }
     }
 
-    bool sendCommands()
-    {
+    bool sendCommands() {
         static uint8_t index = 0;
         CommandInfo info;
 
-        if (sys->getCommandInfo(index, info))
-        {
+        if (sys->getCommandInfo(index, info)) {
             char buffer[256];
             snprintf(buffer, sizeof(buffer),
                      "TYPE:COMMANDS|MAC:%s|MODULE_NAME:%s|COMMAND_NAME:%s|HELP:%s",
@@ -615,23 +564,18 @@ private:
         return false;
     }
 
-    void sendPong()
-    {
+    void sendPong() {
         char pongBuffer[64];
         uint32_t now = millis();
 
-        snprintf(pongBuffer, sizeof(pongBuffer),
-                 "TYPE:PONG|MAC:%s|TS:%u\n",
-                 macAddress,
-                 now);
+        snprintf(pongBuffer, sizeof(pongBuffer), "TYPE:PONG|MAC:%s|TS:%u\n", macAddress, now);
 
         LockGuard lock(mutex);
 
         client.println(pongBuffer);
     }
 
-    bool sendLog(LogLevel level, const char *message)
-    {
+    bool sendLog(LogLevel level, const char *message) {
         if (!isConnected() ||
             strlen(message) == 0 ||
             strlen(message) > TCP_CLIENT_MESSAGE_MAX_SIZE)
@@ -649,8 +593,7 @@ private:
         return true;
     }
 
-    bool sendData(const char *key, const char *value)
-    {
+    bool sendData(const char *key, const char *value) {
         if (!isConnected() ||
             strlen(key) == 0 ||
             strlen(value) == 0 ||
@@ -670,8 +613,7 @@ private:
         return true;
     }
 
-    void sendIdentifyMessage()
-    {
+    void sendIdentifyMessage() {
         char buffer[128];
         snprintf(buffer, sizeof(buffer),
                  "TYPE:IDENTIFY|MAC:%s|NAME:%s",
@@ -682,10 +624,16 @@ private:
         client.println(buffer);
     }
 
-    void setMACAddress()
-    {
+    void setMACAddress() {
+        if (macAddressSet)
+            return;
+
         WiFi.macAddress().toCharArray(macAddress, sizeof(macAddress));
         LOGF(sys, SRC_TCP, LOG_DEBUG, LOG_COLOR_CYAN, "TCPClient MAC address set: %s", macAddress);
         macAddressSet = true;
+
+        char result[128];
+        if (!scope.set("MAC", macAddress, result))
+            LOGF(sys, SRC_TCP, LOG_ERROR, LOG_COLOR_CYAN, "Failed to save MAC address: %s", result);
     }
 };
