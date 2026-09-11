@@ -55,10 +55,10 @@ public:
                  (res & (1 << 2)) ? "AP SSID " : "",
                  (res & (1 << 3)) ? "AP Password " : "",
                  (res & (1 << 4)) ? "Mode " : "",
-                 (res & (1 << 4)) ? "commence-at-startup " : "",
-                 (res & (1 << 4)) ? "auto-reconnect " : "",
-                 (res & (1 << 4)) ? "reconnect interval " : "",
-                 (res & (1 << 4)) ? "max reconnect attempts" : "");
+                 (res & (1 << 5)) ? "commence-at-startup " : "",
+                 (res & (1 << 6)) ? "auto-reconnect " : "",
+                 (res & (1 << 7)) ? "reconnect interval " : "",
+                 (res & (1 << 8)) ? "max reconnect attempts" : "");
     }
 
     // =============== Functions ===============
@@ -580,7 +580,7 @@ private:
         if (cmd.argumentCount < 1)
             return {false, "Missing argument: reconnectIntervalMS"};
 
-        uint16_t ar = atoi(cmd.arg(0));
+        uint32_t ar = atoi(cmd.arg(0));
         wifi->setReconnectInterval(ar);
         return {true, "Reconnect interval changed!"};
     }
@@ -594,7 +594,10 @@ private:
         if (cmd.argumentCount < 1)
             return {false, "Missing argument: maxReconnectAttempts"};
 
-        uint16_t ar = atoi(cmd.arg(0));
+        uint8_t ar = atoi(cmd.arg(0));
+        if (ar == 0)
+            return {false, "Max reconnect attempts cannot be 0!"};
+
         wifi->setMaxReconnectAttempts(ar);
         return {true, "Max reconnect attempts changed!"};
     }
@@ -698,7 +701,7 @@ private:
 
         MyWiFiClient *wifi = static_cast<MyWiFiClient *>(ctx);
 
-        uint16_t val = atoi(value) != 0;
+        uint16_t val = atoi(value);
         wifi->setReconnectInterval(val);
         LOGF(wifi->sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded reconnect interval: %d", val);
     }
@@ -709,7 +712,7 @@ private:
 
         MyWiFiClient *wifi = static_cast<MyWiFiClient *>(ctx);
 
-        uint8_t val = atoi(value) != 0;
+        uint8_t val = atoi(value);
         wifi->setMaxReconnectAttempts(val);
         LOGF(wifi->sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded max reconnect attempts: %d", val);
     }
