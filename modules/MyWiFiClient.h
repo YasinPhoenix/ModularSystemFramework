@@ -21,23 +21,33 @@ public:
     explicit MyWiFiClient(const WiFiModuleConfig &cfg = {}) : initialConfig(cfg) {}
 
     // =============== Initial Configurations ===============
-    bool applyInitialConfig() {
+    uint8_t applyInitialConfig() {
+        uint8_t results = 0;
         if (initialConfig.sta_ssid && !setCred(initialConfig.sta_ssid, true, false))
-            return false;
+            results |= (1 << 0);
         if (initialConfig.sta_pass && !setCred(initialConfig.sta_pass, false, false))
-            return false;
+            results |= (1 << 1);
         if (initialConfig.ap_ssid && !setCred(initialConfig.ap_ssid, true, true))
-            return false;
+            results |= (1 << 2);
         if (initialConfig.ap_pass && !setCred(initialConfig.ap_pass, false, true))
-            return false;
+            results |= (1 << 3);
         if (initialConfig.mode && !setMode(*initialConfig.mode))
-            return false;
+            results |= (1 << 4);
 
         commenceAtStartup = initialConfig.commence_at_startup.value_or(DEFAULT_COMMENCE_AT_STARTUP);
         autoReconnect = initialConfig.auto_reconnect.value_or(DEFAULT_AUTO_RECONNECT);
         reconnectIntervalMs = initialConfig.reconnect_interval_ms.value_or(DEFAULT_RECONNECT_INTERVAL_MS);
         maxReconnectAttempts = initialConfig.max_reconnect_attempts.value_or(DEFAULT_MAX_RECONNECT_ATTEMPTS);
-        return true;
+        return results;
+    }
+
+    void outputFailedParts(uint8_t res, char *buffer, size_t bufferSize) {
+        snprintf(buffer, bufferSize, "%s%s%s%s%s",
+                 (res & (1 << 0)) ? "STA SSID " : "",
+                 (res & (1 << 1)) ? "STA Password " : "",
+                 (res & (1 << 2)) ? "AP SSID " : "",
+                 (res & (1 << 3)) ? "AP Password " : "",
+                 (res & (1 << 4)) ? "Mode" : "");
     }
 
     // =============== Functions ===============
@@ -62,8 +72,13 @@ public:
         configAvailable = scope.init(name(), sys->getFileSystem(), result);
         LOGF(sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_MAGENTA, "Config scope initialization result: %s", result);
 
-        if(!applyInitialConfig())
-            LOG_WARN(sys, "Failed to apply initial WiFi configuration!", SRC_WIFI);
+        uint8_t res = applyInitialConfig();
+
+        if (res != 0) {
+            char fails[64];
+            outputFailedParts(res, fails, sizeof(fails));
+            LOGF(sys, SRC_WIFI, LOG_WARN, LOG_COLOR_YELLOW, "Failed to apply WiFi configurations: %s", fails);
+        }
 
         loadConfig();
 
@@ -601,7 +616,7 @@ private:
         MyWiFiClient *wifi = static_cast<MyWiFiClient *>(ctx);
         bool val = atoi(value) != 0;
         wifi->setCommenceAtStartup(val);
-        LOGF(wifi->sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded commence-at-startup: %u", val ? "ON" : "OFF");
+        LOGF(wifi->sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded commence-at-startup: %s", val ? "ON" : "OFF");
     }
 
     static void applyAutoReconnect(void *ctx, const char *value) {
