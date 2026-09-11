@@ -21,7 +21,7 @@ enum class WiFiStopTarget : uint8_t {
 };
 
 #define WIFI_SSID_MAX_LEN 32
-#define WIFI_PASS_MAX_LEN 32
+#define WIFI_PASS_MAX_LEN 63
 #define WIFI_PASS_MIN_LEN 8
 
 struct WiFiConfig {

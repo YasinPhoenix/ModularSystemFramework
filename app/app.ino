@@ -2,11 +2,12 @@
 #include "../core/System.h"
 #include "../modules/Modules.h"
 #include "Creds.h"
+#include "Config.h"
 
 System sys;
 
 TCPClient tcp;
-MyWiFiClient wifi;
+MyWiFiClient wifi(AppWiFiConfig);
 SerialModule serial;
 LittleFsModule lfs;
 

@@ -7,9 +7,40 @@
 #include "common/LogCommon.h"
 #include "common/RetryManager.h"
 #include "common/WiFiCommon.h"
+#include "module_configs/MyWiFiClientConfig.h"
 
 class MyWiFiClient : public IModule {
 public:
+    // =============== Default Values ===============
+    static constexpr bool DEFAULT_COMMENCE_AT_STARTUP = false;
+    static constexpr bool DEFAULT_AUTO_RECONNECT = true;
+    static constexpr uint32_t DEFAULT_RECONNECT_INTERVAL_MS = 10 * 1000;
+    static constexpr uint8_t DEFAULT_MAX_RECONNECT_ATTEMPTS = 5;
+
+    // =============== Constructor ===============
+    explicit MyWiFiClient(const WiFiModuleConfig &cfg = {}) : initialConfig(cfg) {}
+
+    // =============== Initial Configurations ===============
+    bool applyInitialConfig() {
+        if (initialConfig.sta_ssid && !setCred(initialConfig.sta_ssid, true, false))
+            return false;
+        if (initialConfig.sta_pass && !setCred(initialConfig.sta_pass, false, false))
+            return false;
+        if (initialConfig.ap_ssid && !setCred(initialConfig.ap_ssid, true, true))
+            return false;
+        if (initialConfig.ap_pass && !setCred(initialConfig.ap_pass, false, true))
+            return false;
+        if (initialConfig.mode && !setMode(*initialConfig.mode))
+            return false;
+
+        commenceAtStartup = initialConfig.commence_at_startup.value_or(DEFAULT_COMMENCE_AT_STARTUP);
+        autoReconnect = initialConfig.auto_reconnect.value_or(DEFAULT_AUTO_RECONNECT);
+        reconnectIntervalMs = initialConfig.reconnect_interval_ms.value_or(DEFAULT_RECONNECT_INTERVAL_MS);
+        maxReconnectAttempts = initialConfig.max_reconnect_attempts.value_or(DEFAULT_MAX_RECONNECT_ATTEMPTS);
+        return true;
+    }
+
+    // =============== Functions ===============
     const char *name() override { return "WiFi"; }
 
     MODULE_COMMANDS();
@@ -27,6 +58,15 @@ public:
         WiFi.onEvent([this](arduino_event_id_t event, arduino_event_info_t info) { this->onWiFiEvent(event, info); });
         WiFi.setAutoReconnect(false);
 
+        char result[128];
+        configAvailable = scope.init(name(), sys->getFileSystem(), result);
+        LOGF(sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_MAGENTA, "Config scope initialization result: %s", result);
+
+        if(!applyInitialConfig())
+            LOG_WARN(sys, "Failed to apply initial WiFi configuration!", SRC_WIFI);
+
+        loadConfig();
+
         wifiRetry.init(maxReconnectAttempts, reconnectIntervalMs, [this]() { return commence(); });
 
         wifiRetry.onExhaustedDo([this]() {
@@ -38,11 +78,8 @@ public:
             LOG_WARN(this->sys, "WiFi reconnection attempt failed to start!", SRC_WIFI);
         });
 
-        char result[128];
-        configAvailable = scope.init(name(), sys->getFileSystem(), result);
-        LOGF(sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_MAGENTA, "Config scope initialization result: %s", result);
-
-        loadConfig();
+        if (commenceAtStartup)
+            commence();
 
         return true;
     }
@@ -54,7 +91,7 @@ public:
         {
             LockGuard lock(mutex);
             currentState = state;
-        } // released immediately after copying the value out
+        }
 
         if (currentState == WiFiConnectionState::DISCONNECTED && autoReconnect && staApplicable) {
             if (!wifiRetry.isArmed())
@@ -141,7 +178,21 @@ public:
         return true;
     }
 
-    inline void setAutoReconnect(bool enable) { autoReconnect = enable; }
+    bool setCommenceAtStartup(bool enable) {
+        commenceAtStartup = enable;
+
+        if (!scope.set("commenceAtStartup", enable ? "1" : "0"))
+            LOG_ERROR(sys, "Failed to save commence-at-startup flag to config", SRC_WIFI);
+        return true;
+    }
+
+    bool setAutoReconnect(bool enable) {
+        autoReconnect = enable;
+
+        if (!scope.set("autoReconnect", enable ? "1" : "0"))
+            LOG_ERROR(sys, "Failed to save auto-reconnect flag to config", SRC_WIFI);
+        return true;
+    }
 
     bool commence() {
         WiFiConnectionState currentState;
@@ -338,6 +389,7 @@ public:
         LockGuard lock(mutex);
         return clientCount;
     }
+
     inline IPAddress getStaIp() const {
         LockGuard lock(mutex);
         return staIp;
@@ -362,7 +414,9 @@ private:
         There are only a few of the variables are currently protected by the
         mutex handling and are marked as [MUTEX-PROTECTED]. The rest are not
         meant to be read/written on multiple tasks.
-     */
+    */
+
+    WiFiModuleConfig initialConfig;
 
     ConfigScope scope;
     bool configAvailable = false;
@@ -374,9 +428,10 @@ private:
 
     SemaphoreHandle_t mutex;
 
-    volatile bool autoReconnect = true;
-    uint32_t reconnectIntervalMs = 10 * 1000; // 10 seconds
-    uint8_t maxReconnectAttempts = 5;
+    bool commenceAtStartup;
+    volatile bool autoReconnect;
+    uint32_t reconnectIntervalMs;
+    uint8_t maxReconnectAttempts;
 
     RetryManager wifiRetry;
 
@@ -434,6 +489,23 @@ private:
             return {false, "Failed to set mode and reconnect"};
 
         return {true, "WiFi mode set successfully"};
+    }
+
+    static CommandResult CMDSetCommenceAtStartup(void *ctx, const Command &cmd) {
+        if (!ctx)
+            return {false, "Context is null!"};
+
+        MyWiFiClient *wifi = static_cast<MyWiFiClient *>(ctx);
+
+        if (cmd.argumentCount < 1)
+            return {false, "Missing argument: commence-at-startup"};
+
+        uint8_t val = atoi(cmd.arg(0));
+        if (val > 1)
+            return {false, "Invalid value. Must be 0 (OFF) or 1 (ON)"};
+
+        wifi->setCommenceAtStartup(val);
+        return {true, "Auto-commence changed!"};
     }
 
     static CommandResult CMDSetAutoReconnect(void *ctx, const Command &cmd) {
@@ -513,7 +585,8 @@ private:
         {"setSta", "Set WiFi STA credentials <SSID> [password=\"\"]", CMDSetSta},
         {"setAp", "Set WiFi AP credentials <SSID> [password=\"\"]", CMDSetAp},
         {"setMode", "Set WiFi mode <0=STA|1=AP|2=AP+STA>", CMDSetMode},
-        {"setAutoReconnect", "Set WiFi auto reconnect <0=OFF|1=ON>", CMDSetAutoReconnect},
+        {"setAutoCommence", "Set WiFi commence-at-startup <0=OFF|1=ON>", CMDSetCommenceAtStartup},
+        {"setAutoReconnect", "Set WiFi auto-reconnect <0=OFF|1=ON>", CMDSetAutoReconnect},
         {"commence", "Commence WiFi network", CMDCommence},
         {"stop", "Stop WiFi module [0=ALL|1=STA|2=AP]", CMDStop},
         {"clientCount", "Get AP client count", CMDGetClientCount},
@@ -521,6 +594,26 @@ private:
     };
 
     // =============== CONFIG ===============
+    static void applyCommenceAtStartup(void *ctx, const char *value) {
+        if (!ctx || !value)
+            return;
+
+        MyWiFiClient *wifi = static_cast<MyWiFiClient *>(ctx);
+        bool val = atoi(value) != 0;
+        wifi->setCommenceAtStartup(val);
+        LOGF(wifi->sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded commence-at-startup: %u", val ? "ON" : "OFF");
+    }
+
+    static void applyAutoReconnect(void *ctx, const char *value) {
+        if (!ctx || !value)
+            return;
+
+        MyWiFiClient *wifi = static_cast<MyWiFiClient *>(ctx);
+        bool val = atoi(value) != 0;
+        wifi->setAutoReconnect(val);
+        LOGF(wifi->sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded auto-reconnect: %u", val ? "ON" : "OFF");
+    }
+
     static void applyMode(void *ctx, const char *value) {
         if (!ctx || !value)
             return;
@@ -583,7 +676,9 @@ private:
             {"staSsid", applyStaSsid},
             {"staPass", applyStaPass},
             {"apSsid", applyApSsid},
-            {"apPass", applyApPass}};
+            {"apPass", applyApPass},
+            {"commenceAtStartup", applyCommenceAtStartup},
+            {"autoReconnect", applyAutoReconnect}};
 
         uint8_t availableCount = 0;
 
@@ -697,6 +792,7 @@ private:
 
         return true;
     }
+
     bool isPassValid(const char *pass) {
         if (!pass)
             return false;
