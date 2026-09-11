@@ -21,7 +21,7 @@ public:
     explicit MyWiFiClient(const WiFiModuleConfig &cfg = {}) : initialConfig(cfg) {}
 
     // =============== Initial Configurations ===============
-    uint8_t applyInitialConfig() {
+    uint16_t applyInitialConfig() {
         uint16_t results = 0;
         auto *cfg = initialConfig;
 
