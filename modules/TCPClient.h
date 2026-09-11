@@ -21,6 +21,46 @@ struct MessageField {
 
 class TCPClient : public IModule {
 public:
+    // =============== Default Values ===============
+    static constexpr bool DEFAULT_AUTO_CONNECT = true;
+    static constexpr uint16_t DEFAULT_KEEP_ALIVE = 10 * 1000;
+    static constexpr size_t DEFAULT_MAX_BUFFE_SIZE = 256;
+
+    // =============== Constructor ===============
+    explicit TCPClient(const TCPModuleConfig &cfg = {}) : initialConfig(cfg) {}
+
+    // =============== Initial Configurations ===============
+    uint8_t applyInitialConfig() {
+        uint8_t result = 0;
+        auto *cfg = initialConfig;
+        if (!cfg->server_address)
+            result |= (1 << 0);
+        if (!cfg->server_port)
+            result |= (1 << 1);
+        if (!(result & (1 << 0)) && !(result & (1 << 1))) {
+            setServer(cfg->server_address, *cfg->server_port)
+        } else
+            result |= (1 << 2);
+
+        if (cfg->device_name && !setDeviceName(cfg->device_name))
+            result |= (1 << 3);
+
+        if (cfg->keep_alive && !setKeepAlive(*cfg->keep_alive))
+            result |= (1 << 4);
+        if (cfg->auto_connect && !setKeepAlive(*cfg->auto_connect))
+            result |= (1 << 5);
+
+        return result;
+    }
+
+    void outputFailedParts(uint8_t res, char *buffer, size_t bufferSize){
+        snprintf(buffer, bufferSize, "%s%s%s%s%s%s",
+                 (res & (1 << 2)) ? "Server " : "",
+                 (res & (1 << 3)) ? "Device name " : "",
+                 (res & (1 << 4)) ? "Keep-alive " : "",
+                 (res & (1 << 4)) ? "Auto-connect" : "");
+    }
+    // =============== Functions ===============
     const char *name() override { return "TCPClient"; }
 
     MODULE_COMMANDS();
@@ -37,6 +77,12 @@ public:
         configAvailable = scope.init(name(), sys->getFileSystem(), result);
         LOGF(sys, SRC_TCP, LOG_DEBUG, LOG_COLOR_MAGENTA, "Config scope initialization result: %s\n", result);
 
+        uint8_t res = applyInitialConfig();
+        if (res != 0) {
+            char fails[64];
+            outputFailedParts(res, fails, sizeof(fails));
+            LOGF(sys, SRC_TCP, LOG_WARN, LOG_COLOR_YELLOW, "Failed to apply TCP configurations: %s", fails);
+        }
         loadConfig();
 
         mutex = xSemaphoreCreateRecursiveMutex();
@@ -97,9 +143,6 @@ public:
         return true;
     }
 
-    // I want to make it so there are two commands for connection and disconnection and if the last used one between connect or
-    // disconnect was connect the auto reconnect then kicks in if for some reason it got disconnected
-
     void update() override {
         if (!configured)
             return;
@@ -148,10 +191,20 @@ public:
         }
 
         keepAlive = ka;
+
+        char result[128];
+        if (!scope.set("keepAlive", keepAlive, result))
+            LOGF(sys, SRC_TCP, LOG_ERROR, LOG_COLOR_RED, "Failed to save keepAlive: %s", result);
         return true;
     }
 
-    void setAutoConnect(bool enable) { autoConnect = enable; }
+    void setAutoConnect(bool enable) {
+        autoConnect = enable;
+
+        char result[128];
+        if (!scope.set("autoConnect", autoConnect, result))
+            LOGF(sys, SRC_TCP, LOG_ERROR, LOG_COLOR_RED, "Failed to save autoConnect: %s", result);
+    }
 
     void setMAC(const char *value) {
         if (!value || value[0] == '\0') {
@@ -182,20 +235,22 @@ public:
 
 private:
     // =============== VARIABLES ===============
+    TCPModuleConfig initialConfig;
+
     ConfigScope scope;
     bool configAvailable = false;
 
     // Connection state
     bool configured = false;
     uint32_t lastAttempt = 0;
-    bool autoConnect = false;
+    bool autoConnect = DEFAULT_AUTO_CONNECT;
 
     // Ping timings
     uint32_t lastPing = 0;
-    uint16_t keepAlive = 10 * 1000;
+    uint16_t keepAlive = DEFAULT_KEEP_ALIVE;
 
     // Buffer size limit
-    const size_t maxBufferSize = 256;
+    const size_t maxBufferSize = DEFAULT_MAX_BUFFE_SIZE;
 
     // Server configuration
     char host[17]; // Max length for IPv4 address string
@@ -271,6 +326,24 @@ private:
         }
     }
 
+    static CommandResult CmdSetAutoConnect(void *ctx, const Command &cmd) {
+        if (!ctx)
+            return {false, "Context is null!"};
+
+        TCPClient *tcp = static_cast<TCPClient *>(ctx);
+
+        if (cmd.argumentCount < 1)
+            return {false, "Missing argument: auto-connect"};
+
+        uint16_t val = atoi(cmd.arg(0));
+        if (val > 1) {
+            LOG_ERROR(tcp->sys, "Failed to set auto-connect: invalid value", SRC_TCP);
+            return;
+        }
+
+        tcp->setAutoConnect(val);
+    }
+
     static CommandResult CmdConnect(void *ctx, const Command &cmd) {
         if (!ctx)
             return {false, "Context is null!"};
@@ -305,6 +378,7 @@ private:
         {"setServer", "Set the TCP server address and port <IP Address> [port=9000]", CmdSetServer},
         {"setDeviceName", "Set the device name for IDENTIFY message <name>", CmdSetDeviceName},
         {"setKeepAlive", "Set the keep-alive timeout in milliseconds <keep-alive=10000>", CmdSetKeepAlive},
+        {"setAutoConnect", "Set the auto-connect value <0=OFF|1=ON>", CmdSetAutoConnect},
         {"connect", "Connect to the TCP server and enable auto-reconnect", CmdConnect},
         {"disconnect", "Disconnect from the TCP server and disable auto-reconnect", CmdDisconnect}};
 
@@ -362,7 +436,14 @@ private:
 
         LOGF(tcp->sys, SRC_TCP, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded auto-connect from config: %s", value);
 
-        tcp->setAutoConnect(atoi(value) != 0);
+        uint8_t val = atoi(value) != 0;
+
+        if (val > 1) {
+            LOG_ERROR(tcp->sys, "Failed to load auto-connect from config: invalid value", SRC_TCP);
+            return;
+        }
+
+        tcp->setAutoConnect(val);
     }
 
     static void applyMAC(void *ctx, const char *value) {
@@ -385,6 +466,7 @@ private:
             {"port", applyPort},
             {"deviceName", applyDeviceName},
             {"keepAlive", applyKeepAlive},
+            {"autoConnect", applyAutoConnect},
             {"MAC", applyMAC}};
 
         uint8_t availableCount = 0;
