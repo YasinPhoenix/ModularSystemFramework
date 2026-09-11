@@ -22,32 +22,43 @@ public:
 
     // =============== Initial Configurations ===============
     uint8_t applyInitialConfig() {
-        uint8_t results = 0;
-        if (initialConfig.sta_ssid && !setCred(initialConfig.sta_ssid, true, false))
+        uint16_t results = 0;
+        auto *cfg = initialConfig;
+
+        if (cfg->sta_ssid && !setCred(cfg->sta_ssid, true, false))
             results |= (1 << 0);
-        if (initialConfig.sta_pass && !setCred(initialConfig.sta_pass, false, false))
+        if (cfg->sta_pass && !setCred(cfg->sta_pass, false, false))
             results |= (1 << 1);
-        if (initialConfig.ap_ssid && !setCred(initialConfig.ap_ssid, true, true))
+        if (cfg->ap_ssid && !setCred(cfg->ap_ssid, true, true))
             results |= (1 << 2);
-        if (initialConfig.ap_pass && !setCred(initialConfig.ap_pass, false, true))
+        if (cfg->ap_pass && !setCred(cfg->ap_pass, false, true))
             results |= (1 << 3);
-        if (initialConfig.mode && !setMode(*initialConfig.mode))
+        if (cfg->mode && !setMode(*cfg->mode))
             results |= (1 << 4);
 
-        commenceAtStartup = initialConfig.commence_at_startup.value_or(DEFAULT_COMMENCE_AT_STARTUP);
-        autoReconnect = initialConfig.auto_reconnect.value_or(DEFAULT_AUTO_RECONNECT);
-        reconnectIntervalMs = initialConfig.reconnect_interval_ms.value_or(DEFAULT_RECONNECT_INTERVAL_MS);
-        maxReconnectAttempts = initialConfig.max_reconnect_attempts.value_or(DEFAULT_MAX_RECONNECT_ATTEMPTS);
+        if (cfg->commence_at_startup && !setCommenceAtStartup(*cfg->commence_at_startup))
+            results |= (1 << 5);
+        if (cfg->auto_reconnect && !setAutoReconnect(*cfg->auto_reconnect))
+            results |= (1 << 6);
+        if (cfg->reconnect_interval_ms && !setReconnectInterval(*cfg->reconnect_interval_ms))
+            results |= (1 << 7);
+        if (cfg->max_reconnect_attempts && !setMaxReconnectAttempts(*cfg->max_reconnect_attempts))
+            results |= (1 << 8);
+
         return results;
     }
 
-    void outputFailedParts(uint8_t res, char *buffer, size_t bufferSize) {
-        snprintf(buffer, bufferSize, "%s%s%s%s%s",
+    void outputFailedParts(uint16_t res, char *buffer, size_t bufferSize) {
+        snprintf(buffer, bufferSize, "%s%s%s%s%s%s%s%s%s",
                  (res & (1 << 0)) ? "STA SSID " : "",
                  (res & (1 << 1)) ? "STA Password " : "",
                  (res & (1 << 2)) ? "AP SSID " : "",
                  (res & (1 << 3)) ? "AP Password " : "",
-                 (res & (1 << 4)) ? "Mode" : "");
+                 (res & (1 << 4)) ? "Mode " : "",
+                 (res & (1 << 4)) ? "commence-at-startup " : "",
+                 (res & (1 << 4)) ? "auto-reconnect " : "",
+                 (res & (1 << 4)) ? "reconnect interval " : "",
+                 (res & (1 << 4)) ? "max reconnect attempts" : "");
     }
 
     // =============== Functions ===============
@@ -72,14 +83,12 @@ public:
         configAvailable = scope.init(name(), sys->getFileSystem(), result);
         LOGF(sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_MAGENTA, "Config scope initialization result: %s", result);
 
-        uint8_t res = applyInitialConfig();
-
+        uint16_t res = applyInitialConfig();
         if (res != 0) {
-            char fails[64];
+            char fails[128];
             outputFailedParts(res, fails, sizeof(fails));
             LOGF(sys, SRC_WIFI, LOG_WARN, LOG_COLOR_YELLOW, "Failed to apply WiFi configurations: %s", fails);
         }
-
         loadConfig();
 
         wifiRetry.init(maxReconnectAttempts, reconnectIntervalMs, [this]() { return commence(); });
@@ -206,6 +215,28 @@ public:
 
         if (!scope.set("autoReconnect", enable ? "1" : "0"))
             LOG_ERROR(sys, "Failed to save auto-reconnect flag to config", SRC_WIFI);
+        return true;
+    }
+
+    bool setReconnectInterval(uint32_t interval) {
+        reconnectIntervalMs = interval;
+
+        char intervalStr[10 + 1];
+        snprintf(intervalStr, sizeof(intervalStr), "%d", interval);
+
+        if (!scope.set("reconnectInterval", intervalStr))
+            LOG_ERROR(sys, "Failed to save reconnect interval to config", SRC_WIFI);
+        return true;
+    }
+
+    bool setMaxReconnectAttempts(uint8_t mra) {
+        maxReconnectAttempts = mra;
+
+        char mraStr[3 + 1];
+        snprintf(mraStr, sizeof(mraStr), "%d", mra);
+
+        if (!scope.set("maxReconnectAttempts", mraStr))
+            LOG_ERROR(sys, "Failed to save max reconnect attempts to config", SRC_WIFI);
         return true;
     }
 
@@ -537,7 +568,35 @@ private:
             return {false, "Invalid value. Must be 0 (OFF), or 1 (ON)"};
 
         wifi->setAutoReconnect(ar);
-        return {true, "Auto reconnect changed!"};
+        return {true, "Auto-reconnect changed!"};
+    }
+
+    static CommandResult CMDSetReconnectInterval(void *ctx, const Command &cmd) {
+        if (!ctx)
+            return {false, "Context is null!"};
+
+        MyWiFiClient *wifi = static_cast<MyWiFiClient *>(ctx);
+
+        if (cmd.argumentCount < 1)
+            return {false, "Missing argument: reconnectIntervalMS"};
+
+        uint16_t ar = atoi(cmd.arg(0));
+        wifi->setReconnectInterval(ar);
+        return {true, "Reconnect interval changed!"};
+    }
+
+    static CommandResult CMDSetMaxReconnectAttempts(void *ctx, const Command &cmd) {
+        if (!ctx)
+            return {false, "Context is null!"};
+
+        MyWiFiClient *wifi = static_cast<MyWiFiClient *>(ctx);
+
+        if (cmd.argumentCount < 1)
+            return {false, "Missing argument: maxReconnectAttempts"};
+
+        uint16_t ar = atoi(cmd.arg(0));
+        wifi->setMaxReconnectAttempts(ar);
+        return {true, "Max reconnect attempts changed!"};
     }
 
     static CommandResult CMDCommence(void *ctx, const Command &cmd) {
@@ -602,6 +661,8 @@ private:
         {"setMode", "Set WiFi mode <0=STA|1=AP|2=AP+STA>", CMDSetMode},
         {"setCommenceAtStartup", "Set WiFi commence-at-startup <0=OFF|1=ON>", CMDSetCommenceAtStartup},
         {"setAutoReconnect", "Set WiFi auto-reconnect <0=OFF|1=ON>", CMDSetAutoReconnect},
+        {"setReconnectInterval", "Set WiFi reconnetion interval in milliseconds <interval>", CMDSetReconnectInterval},
+        {"setMaxReconnectAttempts", "Set the amount of time wifi tries tp connect before givving up <max>", CMDSetMaxReconnectAttempts},
         {"commence", "Commence WiFi network", CMDCommence},
         {"stop", "Stop WiFi module [0=ALL|1=STA|2=AP]", CMDStop},
         {"clientCount", "Get AP client count", CMDGetClientCount},
@@ -614,6 +675,7 @@ private:
             return;
 
         MyWiFiClient *wifi = static_cast<MyWiFiClient *>(ctx);
+
         bool val = atoi(value) != 0;
         wifi->setCommenceAtStartup(val);
         LOGF(wifi->sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded commence-at-startup: %s", val ? "ON" : "OFF");
@@ -624,9 +686,32 @@ private:
             return;
 
         MyWiFiClient *wifi = static_cast<MyWiFiClient *>(ctx);
+
         bool val = atoi(value) != 0;
         wifi->setAutoReconnect(val);
         LOGF(wifi->sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded auto-reconnect: %s", val ? "ON" : "OFF");
+    }
+
+    static void applyReconnectInterval(void *ctx, const char *value) {
+        if (!ctx || !value)
+            return;
+
+        MyWiFiClient *wifi = static_cast<MyWiFiClient *>(ctx);
+
+        uint16_t val = atoi(value) != 0;
+        wifi->setReconnectInterval(val);
+        LOGF(wifi->sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded reconnect interval: %d", val);
+    }
+
+    static void applyMaxReconnectAttempts(void *ctx, const char *value) {
+        if (!ctx || !value)
+            return;
+
+        MyWiFiClient *wifi = static_cast<MyWiFiClient *>(ctx);
+
+        uint8_t val = atoi(value) != 0;
+        wifi->setMaxReconnectAttempts(val);
+        LOGF(wifi->sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded max reconnect attempts: %d", val);
     }
 
     static void applyMode(void *ctx, const char *value) {
@@ -693,7 +778,9 @@ private:
             {"apSsid", applyApSsid},
             {"apPass", applyApPass},
             {"commenceAtStartup", applyCommenceAtStartup},
-            {"autoReconnect", applyAutoReconnect}};
+            {"autoReconnect", applyAutoReconnect},
+            {"reconnectInterval", applyReconnectInterval},
+            {"maxReconnectAttempts", applyMaxReconnectAttempts}};
 
         uint8_t availableCount = 0;
 
