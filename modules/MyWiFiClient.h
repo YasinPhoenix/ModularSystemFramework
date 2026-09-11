@@ -443,10 +443,10 @@ private:
 
     SemaphoreHandle_t mutex;
 
-    bool commenceAtStartup;
-    volatile bool autoReconnect;
-    uint32_t reconnectIntervalMs;
-    uint8_t maxReconnectAttempts;
+    bool commenceAtStartup = DEFAULT_COMMENCE_AT_STARTUP;
+    volatile bool autoReconnect = DEFAULT_AUTO_RECONNECT;
+    uint32_t reconnectIntervalMs = DEFAULT_RECONNECT_INTERVAL_MS;
+    uint8_t maxReconnectAttempts = DEFAULT_MAX_RECONNECT_ATTEMPTS;
 
     RetryManager wifiRetry;
 
@@ -600,7 +600,7 @@ private:
         {"setSta", "Set WiFi STA credentials <SSID> [password=\"\"]", CMDSetSta},
         {"setAp", "Set WiFi AP credentials <SSID> [password=\"\"]", CMDSetAp},
         {"setMode", "Set WiFi mode <0=STA|1=AP|2=AP+STA>", CMDSetMode},
-        {"setAutoCommence", "Set WiFi commence-at-startup <0=OFF|1=ON>", CMDSetCommenceAtStartup},
+        {"setCommenceAtStartup", "Set WiFi commence-at-startup <0=OFF|1=ON>", CMDSetCommenceAtStartup},
         {"setAutoReconnect", "Set WiFi auto-reconnect <0=OFF|1=ON>", CMDSetAutoReconnect},
         {"commence", "Commence WiFi network", CMDCommence},
         {"stop", "Stop WiFi module [0=ALL|1=STA|2=AP]", CMDStop},
@@ -626,7 +626,7 @@ private:
         MyWiFiClient *wifi = static_cast<MyWiFiClient *>(ctx);
         bool val = atoi(value) != 0;
         wifi->setAutoReconnect(val);
-        LOGF(wifi->sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded auto-reconnect: %u", val ? "ON" : "OFF");
+        LOGF(wifi->sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded auto-reconnect: %s", val ? "ON" : "OFF");
     }
 
     static void applyMode(void *ctx, const char *value) {
