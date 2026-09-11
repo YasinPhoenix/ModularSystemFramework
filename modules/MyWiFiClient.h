@@ -23,26 +23,24 @@ public:
     // =============== Initial Configurations ===============
     uint16_t applyInitialConfig() {
         uint16_t results = 0;
-        auto *cfg = initialConfig;
-
-        if (cfg->sta_ssid && !setCred(cfg->sta_ssid, true, false))
+        if (initialConfig.sta_ssid && !setCred(initialConfig.sta_ssid, true, false))
             results |= (1 << 0);
-        if (cfg->sta_pass && !setCred(cfg->sta_pass, false, false))
+        if (initialConfig.sta_pass && !setCred(initialConfig.sta_pass, false, false))
             results |= (1 << 1);
-        if (cfg->ap_ssid && !setCred(cfg->ap_ssid, true, true))
+        if (initialConfig.ap_ssid && !setCred(initialConfig.ap_ssid, true, true))
             results |= (1 << 2);
-        if (cfg->ap_pass && !setCred(cfg->ap_pass, false, true))
+        if (initialConfig.ap_pass && !setCred(initialConfig.ap_pass, false, true))
             results |= (1 << 3);
-        if (cfg->mode && !setMode(*cfg->mode))
+        if (initialConfig.mode && !setMode(*initialConfig.mode))
             results |= (1 << 4);
 
-        if (cfg->commence_at_startup && !setCommenceAtStartup(*cfg->commence_at_startup))
+        if (initialConfig.commence_at_startup && !setCommenceAtStartup(*initialConfig.commence_at_startup))
             results |= (1 << 5);
-        if (cfg->auto_reconnect && !setAutoReconnect(*cfg->auto_reconnect))
+        if (initialConfig.auto_reconnect && !setAutoReconnect(*initialConfig.auto_reconnect))
             results |= (1 << 6);
-        if (cfg->reconnect_interval_ms && !setReconnectInterval(*cfg->reconnect_interval_ms))
+        if (initialConfig.reconnect_interval_ms && !setReconnectInterval(*initialConfig.reconnect_interval_ms))
             results |= (1 << 7);
-        if (cfg->max_reconnect_attempts && !setMaxReconnectAttempts(*cfg->max_reconnect_attempts))
+        if (initialConfig.max_reconnect_attempts && !setMaxReconnectAttempts(*initialConfig.max_reconnect_attempts))
             results |= (1 << 8);
 
         return results;

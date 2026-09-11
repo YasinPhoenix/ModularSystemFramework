@@ -32,22 +32,21 @@ public:
     // =============== Initial Configurations ===============
     uint8_t applyInitialConfig() {
         uint8_t result = 0;
-        auto *cfg = initialConfig;
-        if (!cfg->server_address)
+        if (!initialConfigserver_address)
             result |= (1 << 0);
-        if (!cfg->server_port)
+        if (!initialConfigserver_port)
             result |= (1 << 1);
         if (!(result & (1 << 0)) && !(result & (1 << 1))) {
-            setServer(cfg->server_address, *cfg->server_port)
+            setServer(initialConfigserver_address, *initialConfigserver_port)
         } else
             result |= (1 << 2);
 
-        if (cfg->device_name && !setDeviceName(cfg->device_name))
+        if (initialConfigdevice_name && !setDeviceName(initialConfigdevice_name))
             result |= (1 << 3);
 
-        if (cfg->keep_alive && !setKeepAlive(*cfg->keep_alive))
+        if (initialConfigkeep_alive && !setKeepAlive(*initialConfigkeep_alive))
             result |= (1 << 4);
-        if (cfg->auto_connect && !setKeepAlive(*cfg->auto_connect))
+        if (initialConfigauto_connect && !setKeepAlive(*initialConfigauto_connect))
             result |= (1 << 5);
 
         return result;
