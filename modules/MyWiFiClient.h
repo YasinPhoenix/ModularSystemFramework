@@ -699,7 +699,7 @@ private:
 
         MyWiFiClient *wifi = static_cast<MyWiFiClient *>(ctx);
 
-        uint16_t val = atoi(value);
+        uint32_t val = atoi(value);
         wifi->setReconnectInterval(val);
         LOGF(wifi->sys, SRC_WIFI, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded reconnect interval: %d", val);
     }

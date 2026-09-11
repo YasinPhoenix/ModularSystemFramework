@@ -1,6 +1,7 @@
 #pragma once
 #include "../core/System.h"
 #include "common/LockGuard.h"
+#include "module_configs/TCPClientConfig.h"
 #include <WiFi.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
@@ -32,32 +33,32 @@ public:
     // =============== Initial Configurations ===============
     uint8_t applyInitialConfig() {
         uint8_t result = 0;
-        if (!initialConfigserver_address)
+        if (!initialConfig.server_address)
             result |= (1 << 0);
-        if (!initialConfigserver_port)
+        if (!initialConfig.server_port)
             result |= (1 << 1);
         if (!(result & (1 << 0)) && !(result & (1 << 1))) {
-            setServer(initialConfigserver_address, *initialConfigserver_port)
+            setServer(initialConfig.server_address, *initialConfig.server_port);
         } else
             result |= (1 << 2);
 
-        if (initialConfigdevice_name && !setDeviceName(initialConfigdevice_name))
+        if (initialConfig.device_name && !setDeviceName(initialConfig.device_name))
             result |= (1 << 3);
 
-        if (initialConfigkeep_alive && !setKeepAlive(*initialConfigkeep_alive))
+        if (initialConfig.keep_alive && !setKeepAlive(*initialConfig.keep_alive))
             result |= (1 << 4);
-        if (initialConfigauto_connect && !setKeepAlive(*initialConfigauto_connect))
+        if (initialConfig.auto_connect && !setAutoConnect(*initialConfig.auto_connect))
             result |= (1 << 5);
 
         return result;
     }
 
-    void outputFailedParts(uint8_t res, char *buffer, size_t bufferSize){
-        snprintf(buffer, bufferSize, "%s%s%s%s%s%s",
+    void outputFailedParts(uint8_t res, char *buffer, size_t bufferSize) {
+        snprintf(buffer, bufferSize, "%s%s%s%s",
                  (res & (1 << 2)) ? "Server " : "",
                  (res & (1 << 3)) ? "Device name " : "",
                  (res & (1 << 4)) ? "Keep-alive " : "",
-                 (res & (1 << 4)) ? "Auto-connect" : "");
+                 (res & (1 << 5)) ? "Auto-connect" : "");
     }
     // =============== Functions ===============
     const char *name() override { return "TCPClient"; }
@@ -66,7 +67,7 @@ public:
 
     bool init(System *sys) override {
         if (!sys) {
-            LOG_ERROR(sys, "System wasn't given at module initiation!", SRC_WIFI);
+            LOG_ERROR(sys, "System wasn't given at module initiation!", SRC_TCP);
             return false;
         }
 
@@ -174,13 +175,16 @@ public:
 
     uint32_t updateInterval() override { return 1000; }
 
-    void setDeviceName(const char *name) {
-        if (strlen(name) > sizeof(deviceName))
-            LOG_WARN(sys, "Loaded value from config for device name is bigger than expected!", SRC_TCP);
+    bool setDeviceName(const char *name) {
+        if (strlen(name) > sizeof(deviceName)) {
+            LOG_ERROR(sys, "Loaded value from config for device name is bigger than expected!", SRC_TCP);
+            return false;
+        }
 
         strncpy(deviceName, name, sizeof(deviceName) - 1);
         deviceName[sizeof(deviceName) - 1] = '\0';
         isNameSet = true;
+        return true;
     }
 
     bool setKeepAlive(uint16_t ka) {
@@ -191,18 +195,24 @@ public:
 
         keepAlive = ka;
 
+        char kaStr[6];
+        snprintf(kaStr, sizeof(kaStr), "%u", keepAlive);
+
         char result[128];
-        if (!scope.set("keepAlive", keepAlive, result))
+        if (!scope.set("keepAlive", kaStr, result))
             LOGF(sys, SRC_TCP, LOG_ERROR, LOG_COLOR_RED, "Failed to save keepAlive: %s", result);
+
         return true;
     }
 
-    void setAutoConnect(bool enable) {
+    bool setAutoConnect(bool enable) {
         autoConnect = enable;
 
         char result[128];
-        if (!scope.set("autoConnect", autoConnect, result))
+        if (!scope.set("autoConnect", enable ? "1" : "0", result))
             LOGF(sys, SRC_TCP, LOG_ERROR, LOG_COLOR_RED, "Failed to save autoConnect: %s", result);
+
+        return true;
     }
 
     void setMAC(const char *value) {
@@ -211,7 +221,7 @@ public:
             return;
         }
 
-        snprintf(macAddress, sizeof(macAddress), value);
+        snprintf(macAddress, sizeof(macAddress), "%s", value);
         macAddressSet = true;
     }
 
@@ -304,8 +314,8 @@ private:
         if (cmd.argumentCount < 1)
             return {false, "Missing argument: device name"};
 
-        tcp->setDeviceName(cmd.arg(0));
-        return {true, "Device name set"};
+        if (!tcp->setDeviceName(cmd.arg(0)))
+            return {false, "Failed to set device name"};
     }
 
     static CommandResult CmdSetKeepAlive(void *ctx, const Command &cmd) {
@@ -335,12 +345,11 @@ private:
             return {false, "Missing argument: auto-connect"};
 
         uint16_t val = atoi(cmd.arg(0));
-        if (val > 1) {
-            LOG_ERROR(tcp->sys, "Failed to set auto-connect: invalid value", SRC_TCP);
-            return;
-        }
+        if (val > 1)
+            return {false, "Failed to set auto-connect: invalid value"};
 
         tcp->setAutoConnect(val);
+        return {true, "Auto-connect updated!"};
     }
 
     static CommandResult CmdConnect(void *ctx, const Command &cmd) {
@@ -353,7 +362,7 @@ private:
             return {true, "Already connected!"};
         }
 
-        tcp->setAutoConnect(true);
+        tcp->reconnect();
         return {true, "Auto-connect enabled. Attempting to connect..."};
     }
 
@@ -413,7 +422,8 @@ private:
 
         LOGF(tcp->sys, SRC_TCP, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded device name from config: %s", value);
 
-        tcp->setDeviceName(value);
+        if (!tcp->setDeviceName(value))
+            LOG_ERROR(tcp->sys, "Failed to apply loaded device name!", SRC_TCP);
     }
 
     static void applyKeepAlive(void *ctx, const char *value) {
