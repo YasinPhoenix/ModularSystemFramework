@@ -136,7 +136,7 @@ public:
             }
             // null password = clear it (open network) — bypasses length validation on purpose
             _config[0] = '\0';
-            const char *path = isAp ? "apPass" : "staPass";
+            const char *path = isAp ? CONFIG_AP_PASS : CONFIG_STA_PASS;
             char result[128];
             if (!scope.set(path, _config, result))
                 LOGF(sys, SRC_WIFI, LOG_WARN, LOG_COLOR_YELLOW, "Failed to save %s password to config: %s", isAp ? "AP" : "STA", result);
@@ -163,7 +163,7 @@ public:
                  isAp ? "AP" : "STA", isSsid ? "SSID" : "password");
         }
 
-        const char *path = isSsid ? (isAp ? "apSsid" : "staSsid") : (isAp ? "apPass" : "staPass");
+        const char *path = isSsid ? (isAp ? CONFIG_AP_SSID : CONFIG_STA_SSID) : (isAp ? CONFIG_AP_PASS : CONFIG_STA_PASS);
         char result[128];
         if (!scope.set(path, _config, result))
             LOGF(sys, SRC_WIFI, LOG_WARN, LOG_COLOR_YELLOW,
@@ -194,7 +194,7 @@ public:
 
         config.mode = mode;
 
-        if (!scope.set("mode", config.getModeStr(true)))
+        if (!scope.set(CONFIG_MODE, config.getModeStr(true)))
             LOG_ERROR(sys, "Failed to save WiFi mode to config", SRC_WIFI);
 
         return true;
@@ -203,7 +203,7 @@ public:
     bool setCommenceAtStartup(bool enable) {
         commenceAtStartup = enable;
 
-        if (!scope.set("commenceAtStartup", enable ? "1" : "0"))
+        if (!scope.set(CONFIG_COMMENCE_AT_STARTUP, enable ? "1" : "0"))
             LOG_ERROR(sys, "Failed to save commence-at-startup flag to config", SRC_WIFI);
         return true;
     }
@@ -211,7 +211,7 @@ public:
     bool setAutoReconnect(bool enable) {
         autoReconnect = enable;
 
-        if (!scope.set("autoReconnect", enable ? "1" : "0"))
+        if (!scope.set(CONFIG_AUTO_RECONNECT, enable ? "1" : "0"))
             LOG_ERROR(sys, "Failed to save auto-reconnect flag to config", SRC_WIFI);
         return true;
     }
@@ -222,7 +222,7 @@ public:
         char intervalStr[10 + 1];
         snprintf(intervalStr, sizeof(intervalStr), "%d", interval);
 
-        if (!scope.set("reconnectInterval", intervalStr))
+        if (!scope.set(CONFIG_RECONNECT_INTERVAL, intervalStr))
             LOG_ERROR(sys, "Failed to save reconnect interval to config", SRC_WIFI);
         return true;
     }
@@ -233,7 +233,7 @@ public:
         char mraStr[3 + 1];
         snprintf(mraStr, sizeof(mraStr), "%d", mra);
 
-        if (!scope.set("maxReconnectAttempts", mraStr))
+        if (!scope.set(CONFIG_MAX_RECONNECT_ATTEMPTS, mraStr))
             LOG_ERROR(sys, "Failed to save max reconnect attempts to config", SRC_WIFI);
         return true;
     }
@@ -484,6 +484,17 @@ private:
 
     WiFiConfig config;
     WiFiConfig appliedConfig;
+
+    // =============== FS Config Names ===============
+    const char *CONFIG_MODE = "mode";
+    const char *CONFIG_STA_SSID = "staSsid";
+    const char *CONFIG_STA_PASS = "staPass";
+    const char *CONFIG_AP_SSID = "apSsid";
+    const char *CONFIG_AP_PASS = "apPass";
+    const char *CONFIG_COMMENCE_AT_STARTUP = "commenceAtStartup";
+    const char *CONFIG_AUTO_RECONNECT = "autoReconnect";
+    const char *CONFIG_RECONNECT_INTERVAL = "reconnectInterval";
+    const char *CONFIG_MAX_RECONNECT_ATTEMPTS = "maxReconnectAttempts";
 
     // =============== COMMANDS ===============
     static CommandResult CMDSetSta(void *ctx, const Command &cmd) {
@@ -773,15 +784,15 @@ private:
             return false;
 
         const ConfigField fields[] = {
-            {"mode", applyMode},
-            {"staSsid", applyStaSsid},
-            {"staPass", applyStaPass},
-            {"apSsid", applyApSsid},
-            {"apPass", applyApPass},
-            {"commenceAtStartup", applyCommenceAtStartup},
-            {"autoReconnect", applyAutoReconnect},
-            {"reconnectInterval", applyReconnectInterval},
-            {"maxReconnectAttempts", applyMaxReconnectAttempts}};
+            {CONFIG_MODE, applyMode},
+            {CONFIG_STA_SSID, applyStaSsid},
+            {CONFIG_STA_PASS, applyStaPass},
+            {CONFIG_AP_SSID, applyApSsid},
+            {CONFIG_AP_PASS, applyApPass},
+            {CONFIG_COMMENCE_AT_STARTUP, applyCommenceAtStartup},
+            {CONFIG_AUTO_RECONNECT, applyAutoReconnect},
+            {CONFIG_RECONNECT_INTERVAL, applyReconnectInterval},
+            {CONFIG_MAX_RECONNECT_ATTEMPTS, applyMaxReconnectAttempts}};
 
         uint8_t availableCount = 0;
 

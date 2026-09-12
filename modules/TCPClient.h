@@ -28,6 +28,7 @@ public:
     static constexpr int32_t DEFAULT_CONNECTION_TIMEOUT = 3 * 1000;
     static constexpr size_t DEFAULT_MAX_BUFFE_SIZE = 256;
 
+
     // =============== Constructor ===============
     explicit TCPClient(const TCPModuleConfig &cfg = {}) : initialConfig(cfg) {}
 
@@ -111,7 +112,7 @@ public:
         this->host[sizeof(this->host) - 1] = '\0';
 
         char result[128];
-        if (!scope.set("address", host, result))
+        if (!scope.set(CONFIG_SERVER_ADDRESS, host, result))
             LOGF(sys, SRC_TCP, LOG_ERROR, LOG_COLOR_RED, "Failed to save address: %s", result);
 
         if (!updatePort(port, true))
@@ -140,7 +141,7 @@ public:
 
         snprintf(intBuffer, sizeof(intBuffer), "%u", port);
 
-        if (!scope.set("port", intBuffer, result))
+        if (!scope.set(CONFIG_SERVER_PORT, intBuffer, result))
             LOGF(sys, SRC_TCP, LOG_ERROR, LOG_COLOR_RED, "Failed to save port: %s", result);
 
         LOGF(sys, SRC_TCP, LOG_DEBUG, LOG_COLOR_CYAN, "TCPClient port updated to %d", port);
@@ -188,6 +189,11 @@ public:
         strncpy(deviceName, name, sizeof(deviceName) - 1);
         deviceName[sizeof(deviceName) - 1] = '\0';
         isNameSet = true;
+
+        char result[128];
+        if (!scope.set(CONFIG_DEVICE_NAME, name, result))
+            LOGF(sys, SRC_TCP, LOG_ERROR, LOG_COLOR_RED, "Failed to save device name: %s", result);
+            
         return true;
     }
 
@@ -204,7 +210,7 @@ public:
         snprintf(kaStr, sizeof(kaStr), "%u", keepAlive);
 
         char result[128];
-        if (!scope.set("keepAlive", kaStr, result))
+        if (!scope.set(CONFIG_KEEP_ALIVE, kaStr, result))
             LOGF(sys, SRC_TCP, LOG_ERROR, LOG_COLOR_RED, "Failed to save keepAlive: %s", result);
 
         return true;
@@ -223,7 +229,7 @@ public:
         snprintf(toStr, sizeof(toStr), "%d", timeout);
 
         char result[128];
-        if (!scope.set("timeout", toStr, result))
+        if (!scope.set(CONFIG_TIMEOUT, toStr, result))
             LOGF(sys, SRC_TCP, LOG_ERROR, LOG_COLOR_RED, "Failed to save connection timeout: %s", result);
 
         return true;
@@ -233,7 +239,7 @@ public:
         autoConnect = enable;
 
         char result[128];
-        if (!scope.set("autoConnect", enable ? "1" : "0", result))
+        if (!scope.set(CONFIG_AUTO_CONNECT, enable ? "1" : "0", result))
             LOGF(sys, SRC_TCP, LOG_ERROR, LOG_COLOR_RED, "Failed to save autoConnect: %s", result);
 
         return true;
@@ -307,6 +313,15 @@ private:
 
     // Mutex to protect WiFiClient across cores/tasks
     SemaphoreHandle_t mutex = NULL;
+
+    // =============== FS Config Names ===============
+    const char *CONFIG_SERVER_ADDRESS = "address";
+    const char *CONFIG_SERVER_PORT = "port";
+    const char *CONFIG_DEVICE_NAME = "deviceName";
+    const char *CONFIG_KEEP_ALIVE = "keepAlive";
+    const char *CONFIG_TIMEOUT = "timeout";
+    const char *CONFIG_AUTO_CONNECT = "autoConnect";
+    const char *CONFIG_MAC = "MAC";
 
     // =============== COMMANDS ===============
 
@@ -543,13 +558,13 @@ private:
             return false;
 
         const ConfigField fields[] = {
-            {"address", applyHost},
-            {"port", applyPort},
-            {"deviceName", applyDeviceName},
-            {"keepAlive", applyKeepAlive},
-            {"timeout", applyTimeout},
-            {"autoConnect", applyAutoConnect},
-            {"MAC", applyMAC}};
+            {CONFIG_SERVER_ADDRESS, applyHost},
+            {CONFIG_SERVER_PORT, applyPort},
+            {CONFIG_DEVICE_NAME, applyDeviceName},
+            {CONFIG_KEEP_ALIVE, applyKeepAlive},
+            {CONFIG_TIMEOUT, applyTimeout},
+            {CONFIG_AUTO_CONNECT, applyAutoConnect},
+            {CONFIG_MAC, applyMAC}};
 
         uint8_t availableCount = 0;
 
@@ -797,7 +812,7 @@ private:
         macAddressSet = true;
 
         char result[128];
-        if (!scope.set("MAC", macAddress, result))
+        if (!scope.set(CONFIG_MAC, macAddress, result))
             LOGF(sys, SRC_TCP, LOG_ERROR, LOG_COLOR_CYAN, "Failed to save MAC address: %s", result);
     }
 };
