@@ -24,7 +24,8 @@ class TCPClient : public IModule {
 public:
     // =============== Default Values ===============
     static constexpr bool DEFAULT_AUTO_CONNECT = true;
-    static constexpr uint16_t DEFAULT_KEEP_ALIVE = 10 * 1000;
+    static constexpr uint16_t DEFAULT_KEEP_ALIVE = 5 * 1000;
+    static constexpr int32_t DEFAULT_CONNECTION_TIMEOUT = 3;
     static constexpr size_t DEFAULT_MAX_BUFFE_SIZE = 256;
 
     // =============== Constructor ===============
@@ -47,18 +48,21 @@ public:
 
         if (initialConfig.keep_alive && !setKeepAlive(*initialConfig.keep_alive))
             result |= (1 << 4);
-        if (initialConfig.auto_connect && !setAutoConnect(*initialConfig.auto_connect))
+        if (initialConfig.connection_timeout && !setTimeout(*initialConfig.connection_timeout))
             result |= (1 << 5);
+        if (initialConfig.auto_connect && !setAutoConnect(*initialConfig.auto_connect))
+            result |= (1 << 6);
 
         return result;
     }
 
     void outputFailedParts(uint8_t res, char *buffer, size_t bufferSize) {
-        snprintf(buffer, bufferSize, "%s%s%s%s",
+        snprintf(buffer, bufferSize, "%s%s%s%s%s",
                  (res & (1 << 2)) ? "Server " : "",
                  (res & (1 << 3)) ? "Device name " : "",
                  (res & (1 << 4)) ? "Keep-alive " : "",
-                 (res & (1 << 5)) ? "Auto-connect" : "");
+                 (res & (1 << 5)) ? "connection timeout " : "",
+                 (res & (1 << 6)) ? "Auto-connect" : "");
     }
     // =============== Functions ===============
     const char *name() override { return "TCPClient"; }
@@ -79,7 +83,7 @@ public:
 
         uint8_t res = applyInitialConfig();
         if (res != 0) {
-            char fails[64];
+            char fails[128];
             outputFailedParts(res, fails, sizeof(fails));
             LOGF(sys, SRC_TCP, LOG_WARN, LOG_COLOR_YELLOW, "Failed to apply TCP configurations: %s", fails);
         }
@@ -188,8 +192,9 @@ public:
     }
 
     bool setKeepAlive(uint16_t ka) {
-        if (ka < 5000) {
-            LOG_ERROR(sys, "Keep-alive number invalid! (must be 5000 or above)", SRC_TCP);
+        if (ka < DEFAULT_KEEP_ALIVE) {
+            LOGF(sys, SRC_TCP, LOG_ERROR, LOG_COLOR_RED,
+                 "Keep-alive number invalid! (must be %u or above)", DEFAULT_KEEP_ALIVE);
             return false;
         }
 
@@ -201,6 +206,28 @@ public:
         char result[128];
         if (!scope.set("keepAlive", kaStr, result))
             LOGF(sys, SRC_TCP, LOG_ERROR, LOG_COLOR_RED, "Failed to save keepAlive: %s", result);
+
+        return true;
+    }
+
+    bool setTimeout(int32_t to) {
+        if (to < DEFAULT_CONNECTION_TIMEOUT) {
+            LOGF(sys, SRC_TCP, LOG_ERROR, LOG_COLOR_RED,
+                 "Connection timeout number invalid! (must be %ds or above)", DEFAULT_CONNECTION_TIMEOUT);
+            return false;
+        }
+
+        if (to >= 1000) 
+            LOG_WARN(sys, "The timeout value must be in seconds", SRC_TCP);
+
+        timeout = to;
+
+        char toStr[6];
+        snprintf(toStr, sizeof(toStr), "%d", timeout);
+
+        char result[128];
+        if (!scope.set("timeout", toStr, result))
+            LOGF(sys, SRC_TCP, LOG_ERROR, LOG_COLOR_RED, "Failed to save connection timeout: %s", result);
 
         return true;
     }
@@ -257,6 +284,7 @@ private:
     // Ping timings
     uint32_t lastPing = 0;
     uint16_t keepAlive = DEFAULT_KEEP_ALIVE;
+    int32_t timeout = DEFAULT_CONNECTION_TIMEOUT;
 
     // Buffer size limit
     const size_t maxBufferSize = DEFAULT_MAX_BUFFE_SIZE;
@@ -335,6 +363,23 @@ private:
         }
     }
 
+    static CommandResult CmdSetTimeout(void *ctx, const Command &cmd) {
+        if (!ctx)
+            return {false, "Context is null!"};
+
+        TCPClient *tcp = static_cast<TCPClient *>(ctx);
+
+        if (cmd.argumentCount < 1)
+            return {false, "Missing argument: Connection timeout"};
+
+        int32_t timeout = atoi(cmd.arg(0));
+        if (tcp->setTimeout(timeout)) {
+            return {true, "Connection timeout set!"};
+        } else {
+            return {false, "Failed to set Connection timeout!"};
+        }
+    }
+
     static CommandResult CmdSetAutoConnect(void *ctx, const Command &cmd) {
         if (!ctx)
             return {false, "Context is null!"};
@@ -344,7 +389,7 @@ private:
         if (cmd.argumentCount < 1)
             return {false, "Missing argument: auto-connect"};
 
-        uint16_t val = atoi(cmd.arg(0));
+        uint8_t val = atoi(cmd.arg(0));
         if (val > 1)
             return {false, "Failed to set auto-connect: invalid value"};
 
@@ -358,12 +403,30 @@ private:
 
         TCPClient *tcp = static_cast<TCPClient *>(ctx);
 
+        bool autoReconnectSet = false;
+        if (cmd.argumentCount) {
+            uint8_t val = atoi(cmd.arg(0));
+            if (val > 1) {
+                LOG_ERROR(tcp->sys, "Failed to set auto-reconnect: Invalid value!", SRC_TCP);
+            } else {
+                tcp->setAutoConnect(val);
+                autoReconnectSet = true;
+            }
+        }
+
+        if (cmd.argumentCount > 1)
+            LOG_WARN(tcp->sys, "This command only takes one argument. the rest are ignored!", SRC_TCP);
+
         if (tcp->isConnected()) {
             return {true, "Already connected!"};
         }
 
         tcp->reconnect();
-        return {true, "Auto-connect enabled. Attempting to connect..."};
+        if (autoReconnectSet) {
+            return {true, "Auto-connect enabled. Attempting to connect..."};
+        } else {
+            return {true, "Attempting to connect..."};
+        }
     }
 
     static CommandResult CmdDisconnect(void *ctx, const Command &cmd) {
@@ -385,9 +448,10 @@ private:
     static constexpr ModuleCommand moduleCommands[] = {
         {"setServer", "Set the TCP server address and port <IP Address> [port=9000]", CmdSetServer},
         {"setDeviceName", "Set the device name for IDENTIFY message <name>", CmdSetDeviceName},
-        {"setKeepAlive", "Set the keep-alive timeout in milliseconds <keep-alive=10000>", CmdSetKeepAlive},
+        {"setKeepAlive", "Set the keep-alive timeout in milliseconds <keep-alive>", CmdSetKeepAlive},
+        {"setConnectTimeout", "Set the connection timeout in seconds <timeout>", CmdSetTimeout},
         {"setAutoConnect", "Set the auto-connect value <0=OFF|1=ON>", CmdSetAutoConnect},
-        {"connect", "Connect to the TCP server and enable auto-reconnect", CmdConnect},
+        {"connect", "Connect to the TCP server and enable auto-reconnect [auto-reconnect: 0=OFF|1=ON]", CmdConnect},
         {"disconnect", "Disconnect from the TCP server and disable auto-reconnect", CmdDisconnect}};
 
     // =============== CONFIG ===============
@@ -437,6 +501,17 @@ private:
         tcp->setKeepAlive(atoi(value));
     }
 
+    static void applyTimeout(void *ctx, const char *value) {
+        if (!ctx || !value)
+            return;
+
+        TCPClient *tcp = static_cast<TCPClient *>(ctx);
+
+        LOGF(tcp->sys, SRC_TCP, LOG_DEBUG, LOG_COLOR_CYAN, "Loaded connection timeout from config: %s", value);
+
+        tcp->setTimeout(atoi(value));
+    }
+
     static void applyAutoConnect(void *ctx, const char *value) {
         if (!ctx || !value)
             return;
@@ -475,6 +550,7 @@ private:
             {"port", applyPort},
             {"deviceName", applyDeviceName},
             {"keepAlive", applyKeepAlive},
+            {"timeout", applyTimeout},
             {"autoConnect", applyAutoConnect},
             {"MAC", applyMAC}};
 
@@ -519,7 +595,7 @@ private:
             bool ok;
             {
                 LockGuard lock(mutex);
-                ok = client.connect(host, port);
+                ok = client.connect(host, port, timeout);
             }
 
             if (ok) {

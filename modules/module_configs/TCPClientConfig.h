@@ -12,6 +12,8 @@ struct TCPModuleConfig {
 
     /// @brief The keep-alive timeout in milliseconds.
     std::optional<uint16_t> keep_alive;
+    /// @brief The connection timeout.
+    std::optional<uint16_t> connection_timeout;
     /// @brief Whether to automatically connect to the TCP server.
     std::optional<bool> auto_connect;
 };
