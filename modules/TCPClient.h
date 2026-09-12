@@ -25,7 +25,7 @@ public:
     // =============== Default Values ===============
     static constexpr bool DEFAULT_AUTO_CONNECT = true;
     static constexpr uint16_t DEFAULT_KEEP_ALIVE = 5 * 1000;
-    static constexpr int32_t DEFAULT_CONNECTION_TIMEOUT = 3;
+    static constexpr int32_t DEFAULT_CONNECTION_TIMEOUT = 3 * 1000;
     static constexpr size_t DEFAULT_MAX_BUFFE_SIZE = 256;
 
     // =============== Constructor ===============
@@ -213,12 +213,9 @@ public:
     bool setTimeout(int32_t to) {
         if (to < DEFAULT_CONNECTION_TIMEOUT) {
             LOGF(sys, SRC_TCP, LOG_ERROR, LOG_COLOR_RED,
-                 "Connection timeout number invalid! (must be %ds or above)", DEFAULT_CONNECTION_TIMEOUT);
+                 "Connection timeout number invalid! (must be %dms or above)", DEFAULT_CONNECTION_TIMEOUT);
             return false;
         }
-
-        if (to >= 1000) 
-            LOG_WARN(sys, "The timeout value must be in seconds", SRC_TCP);
 
         timeout = to;
 
@@ -449,7 +446,7 @@ private:
         {"setServer", "Set the TCP server address and port <IP Address> [port=9000]", CmdSetServer},
         {"setDeviceName", "Set the device name for IDENTIFY message <name>", CmdSetDeviceName},
         {"setKeepAlive", "Set the keep-alive timeout in milliseconds <keep-alive>", CmdSetKeepAlive},
-        {"setConnectTimeout", "Set the connection timeout in seconds <timeout>", CmdSetTimeout},
+        {"setConnectTimeout", "Set the connection timeout in milliseconds <timeout>", CmdSetTimeout},
         {"setAutoConnect", "Set the auto-connect value <0=OFF|1=ON>", CmdSetAutoConnect},
         {"connect", "Connect to the TCP server and enable auto-reconnect [auto-reconnect: 0=OFF|1=ON]", CmdConnect},
         {"disconnect", "Disconnect from the TCP server and disable auto-reconnect", CmdDisconnect}};
