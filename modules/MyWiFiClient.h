@@ -473,7 +473,8 @@ private:
     SemaphoreHandle_t mutex;
 
     bool commenceAtStartup = DEFAULT_COMMENCE_AT_STARTUP;
-    volatile bool autoReconnect = DEFAULT_AUTO_RECONNECT;
+    
+    bool autoReconnect = DEFAULT_AUTO_RECONNECT;
     uint32_t reconnectIntervalMs = DEFAULT_RECONNECT_INTERVAL_MS;
     uint8_t maxReconnectAttempts = DEFAULT_MAX_RECONNECT_ATTEMPTS;
 

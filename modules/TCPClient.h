@@ -90,7 +90,7 @@ public:
         }
         loadConfig();
 
-        mutex = xSemaphoreCreateRecursiveMutex();
+        mutex = xSemaphoreCreateMutex();
         if (mutex == NULL) {
             LOG_ERROR(sys, "Failed to initiate: mutex is NULL!", SRC_TCP);
             return false;
