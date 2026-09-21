@@ -21,6 +21,8 @@ private:
 
     bool initialized = false;
 
+    char lastGetBuffer[256];
+
     size_t readFile(const char *path)
     {
         if (!path)
@@ -249,10 +251,9 @@ public:
 
     const char *get(const char *key, char *result = nullptr)
     {
-        static char value[256];
-        if (!get(key, value, sizeof(value), result))
+        if (!get(key, lastGetBuffer, sizeof(lastGetBuffer), result))
             return nullptr;
-        return value;
+        return lastGetBuffer;
     }
 
     bool getBatch(const char *keys[], size_t keyCount, char values[][128], char *result = nullptr)
