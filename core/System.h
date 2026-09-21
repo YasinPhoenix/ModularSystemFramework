@@ -300,22 +300,25 @@ public:
     {
         Event e;
 
-        // 1. HIGH priority first
-        while (highQueue.pop(e))
+        uint8_t n = 0;
+        while (n < MAX_HIGH_TIER && highQueue.pop(e))
         {
             dispatch(e);
+            n++;
         }
 
-        // 2. NORMAL
-        while (normalQueue.pop(e))
+        n = 0;
+        while (n < MAX_NORMAL_TIER && normalQueue.pop(e))
         {
             dispatch(e);
+            n++;
         }
 
-        // 3. LOW
-        while (lowQueue.pop(e))
+        n = 0;
+        while (n < MAX_LOW_TIER && lowQueue.pop(e))
         {
             dispatch(e);
+            n++;
         }
     }
 
