@@ -12,7 +12,7 @@
 #define LOG_INFO(sys, msg, src) \
     sys->emit(makeLogEvent(msg, src, LOG_INFO));
 
-#define LOG_INFO(sys, msg, src, clr) \
+#define LOG_INFO_COLORED(sys, msg, src, clr) \
     sys->emit(makeLogEvent(msg, src, LOG_INFO, clr));
 
 #define LOG_WARN(sys, msg, src) \

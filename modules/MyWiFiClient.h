@@ -188,7 +188,7 @@ public:
         }
 
         if (!modeChanged) {
-            LOG_INFO(sys, "WiFi mode didn't change!", SRC_WIFI, LOG_COLOR_CYAN);
+            LOG_INFO_COLORED(sys, "WiFi mode didn't change!", SRC_WIFI, LOG_COLOR_CYAN);
             return true;
         }
 
@@ -246,7 +246,7 @@ public:
         }
 
         if (config == appliedConfig && currentState == WiFiConnectionState::CONNECTED) {
-            LOG_INFO(sys, "No changes were made to WiFi!", SRC_WIFI, LOG_COLOR_CYAN);
+            LOG_INFO_COLORED(sys, "No changes were made to WiFi!", SRC_WIFI, LOG_COLOR_CYAN);
             return true;
         }
 
@@ -364,7 +364,7 @@ public:
             }
             wifiRetry.reportSuccess();
             EVENT_WIFI_CONNECTED(SRC_WIFI);
-            LOG_INFO(sys, "WiFi Connected!", SRC_WIFI, LOG_COLOR_CYAN);
+            LOG_INFO_COLORED(sys, "WiFi Connected!", SRC_WIFI, LOG_COLOR_CYAN);
             break;
         }
 
