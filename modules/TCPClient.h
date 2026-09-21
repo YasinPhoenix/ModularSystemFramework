@@ -356,6 +356,7 @@ private:
 
         if (!tcp->setDeviceName(cmd.arg(0)))
             return {false, "Failed to set device name"};
+        return {true, "Device name set successfully"};
     }
 
     static CommandResult CmdSetKeepAlive(void *ctx, const Command &cmd) {
