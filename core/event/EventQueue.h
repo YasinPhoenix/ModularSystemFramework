@@ -50,5 +50,33 @@ public:
         return true;
     }
 
-    const Event &getBufferIndex(size_t index) { return buffer[index]; }
+    bool pushCoalesced(const Event &e)
+    {
+        portENTER_CRITICAL(&mux);
+
+        // Only walk the ACTIVE window [tail, head)
+        for (int i = tail; i != head; i = (i + 1) % EVENT_QUEUE_SIZE)
+        {
+            if (buffer[i].type == e.type)
+            {
+                buffer[i] = e; // real slot, real overwrite
+                portEXIT_CRITICAL(&mux);
+                return true;
+            }
+        }
+
+        // No match found — push normally (queue-full check included)
+        int next = (head + 1) % EVENT_QUEUE_SIZE;
+        if (next == tail)
+        {
+            portEXIT_CRITICAL(&mux);
+            return false; // queue full
+        }
+
+        buffer[head] = e;
+        head = next;
+
+        portEXIT_CRITICAL(&mux);
+        return true;
+    }
 };

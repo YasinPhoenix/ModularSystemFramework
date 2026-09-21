@@ -275,7 +275,7 @@ public:
             highQueue.push(e);
             break;
         case PRIORITY_LOW:
-            coalesceOrPush(lowQueue, e);
+            lowQueue.pushCoalesced(e);
             break;
         default:
             normalQueue.push(e);
@@ -332,33 +332,5 @@ public:
                 m->onEvent(e);
             }
         }
-    }
-
-    void coalesceOrPush(EventQueue &q, const Event &e)
-    {
-        // Try to replace existing event of same type
-        if (replaceExisting(q, e))
-        {
-            return;
-        }
-
-        // Otherwise push normally
-        q.push(e);
-    }
-
-    bool replaceExisting(EventQueue &q, const Event &e)
-    {
-        for (uint16_t i = 0; i < EVENT_QUEUE_SIZE; i++)
-        {
-            Event slot = q.getBufferIndex(i);
-
-            if (slot.type == e.type)
-            {
-                slot = e; // overwrite with latest
-                return true;
-            }
-        }
-
-        return false;
     }
 };
