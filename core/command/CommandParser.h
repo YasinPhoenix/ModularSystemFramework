@@ -31,7 +31,8 @@ public:
         trimLine(buffer);
 
         // module
-        char *token = strtok(buffer, " ");
+        char *savePtr;
+        char *token = strtok_r(buffer, " ", &savePtr);
         if (!token)
             return CMD_PARSE_EMPTY;
 
@@ -42,7 +43,7 @@ public:
         cmd.moduleName[sizeof(cmd.moduleName) - 1] = '\0';
 
         // command
-        token = strtok(nullptr, " ");
+        token = strtok_r(nullptr, " ", &savePtr);
         if (!token)
             return CMD_PARSE_EMPTY;
 
@@ -58,7 +59,7 @@ public:
         // arguments
         while (true)
         {
-            token = strtok(nullptr, " ");
+            token = strtok_r(nullptr, " ", &savePtr);
 
             if (!token)
                 break;

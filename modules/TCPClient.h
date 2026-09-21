@@ -674,7 +674,8 @@ private:
         MessageField fields[10];
         int count = 0;
 
-        char *token = strtok(buffer, "|");
+        char *savePtr;
+        char *token = strtok_r(buffer, "|", &savePtr);
 
         while (token && count < 10) {
             char *colon = strchr(token, ':');
@@ -684,7 +685,7 @@ private:
                 fields[count++] = {token, colon + 1};
             }
 
-            token = strtok(nullptr, "|");
+            token = strtok_r(nullptr, "|", &savePtr);
         }
 
         const char *type = findField(fields, count, "TYPE");
