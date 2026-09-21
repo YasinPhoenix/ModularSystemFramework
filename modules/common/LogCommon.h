@@ -3,9 +3,9 @@
 // ---------- LOG LEVEL ----------
 enum LogLevel : uint8_t
 {
-    LOG_INFO = 0,
+    LOG_ERROR = 0,
     LOG_WARN,
-    LOG_ERROR,
+    LOG_INFO,
     LOG_DEBUG
 };
 
@@ -13,14 +13,16 @@ inline const char *toString(LogLevel l)
 {
     switch (l)
     {
-    case LOG_DEBUG:
-        return "DEBUG";
-    case LOG_WARN:
-        return "WARN";
     case LOG_ERROR:
         return "ERROR";
-    default:
+    case LOG_WARN:
+        return "WARN";
+    case LOG_INFO:
         return "INFO";
+    case LOG_DEBUG:
+        return "DEBUG";
+    default:
+        return "UNKNOWN";
     }
 }
 

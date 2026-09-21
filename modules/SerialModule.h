@@ -132,7 +132,7 @@ private:
     }
 
     static constexpr ModuleCommand moduleCommands[] = {
-        {"setLogLevel", "Set the minimum log level <0=INFO|1=WARN|2=ERROR|3=DEBUG>", setLogLevel},
+        {"setLogLevel", "Set the minimum log level <0=ERROR|1=WARN|2=INFO|3=DEBUG>", setLogLevel},
         {"setColorUse", "Enable or disable color output <enable=0>", setColorUse}};
 
     static void applyColorUse(void *ctx, const char *value) {
@@ -160,13 +160,13 @@ private:
             return;
 
         SerialModule *serial = static_cast<SerialModule *>(ctx);
-
-        if (strcmp(value, "INFO") == 0) {
-            serial->setLogLevel(LOG_INFO);
+        
+        if (strcmp(value, "ERROR") == 0) {
+            serial->setLogLevel(LOG_ERROR);
         } else if (strcmp(value, "WARN") == 0) {
             serial->setLogLevel(LOG_WARN);
-        } else if (strcmp(value, "ERROR") == 0) {
-            serial->setLogLevel(LOG_ERROR);
+        } else if (strcmp(value, "INFO") == 0) {
+            serial->setLogLevel(LOG_INFO);
         } else if (strcmp(value, "DEBUG") == 0) {
             serial->setLogLevel(LOG_DEBUG);
         } else {
