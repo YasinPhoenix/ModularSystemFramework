@@ -150,10 +150,7 @@ public:
             return false;
         }
 
-        auto _appliedConfig = isSsid ? (isAp ? appliedConfig.apSsid : appliedConfig.staSsid)
-                                     : (isAp ? appliedConfig.apPass : appliedConfig.staPass);
-
-        if (strcmp(_appliedConfig, value) != 0) {
+        if (strcmp(_config, value) != 0) {
             size_t maxLen = isSsid ? WIFI_SSID_MAX_LEN : WIFI_PASS_MAX_LEN;
             strncpy(_config, value, maxLen);
             _config[maxLen] = '\0';
