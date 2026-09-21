@@ -26,6 +26,7 @@ private:
     IFileSystem *fileSystem = nullptr;
 
     TaskHandle_t updateTaskHandle = nullptr;
+    TaskHandle_t eventTaskHandle = nullptr;
 
     static void updateTask(void *arg)
     {
@@ -49,6 +50,16 @@ private:
                 }
             }
 
+            vTaskDelay(1); // yield
+        }
+    }
+
+    static void eventTask(void *arg)
+    {
+        System *sys = static_cast<System *>(arg);
+        while (true)
+        {
+            sys->processEvents();
             vTaskDelay(1); // yield
         }
     }
@@ -294,6 +305,16 @@ public:
             &updateTaskHandle,
             1 // Core 1
         );
+
+        xTaskCreatePinnedToCore(
+            eventTask, 
+            "EventDispatchTask", 
+            8192, 
+            this, 
+            1, 
+            &eventTaskHandle, 
+            0 // Core 0
+        );   
     }
 
     void processEvents()

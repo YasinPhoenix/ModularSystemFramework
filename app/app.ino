@@ -19,13 +19,7 @@ void setup()
     sys.addModule(&wifi);
     sys.addModule(&tcp);
 
-    sys.start(); // starts Core 1 task (update processing)
+    sys.start();
 }
 
-void loop()
-{   
-    // Core 0 = event processing
-    sys.processEvents();
-
-    delay(1);
-}
+void loop(){ vTaskDelay(portMAX_DELAY); }
