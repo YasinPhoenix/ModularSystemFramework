@@ -59,8 +59,8 @@ private:
         System *sys = static_cast<System *>(arg);
         while (true)
         {
+            ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
             sys->processEvents();
-            vTaskDelay(1); // yield
         }
     }
 
@@ -292,6 +292,9 @@ public:
             normalQueue.push(e);
             break;
         }
+
+        if (eventTaskHandle != nullptr)
+            xTaskNotifyGive(eventTaskHandle);
     }
 
     void start()
